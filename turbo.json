@@ -1,0 +1,29 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "globalEnv": [
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "GOOGLE_CLOUD_PROJECT_ID",
+    "GOOGLE_CLOUD_PUBSUB_TOPIC",
+    "GOOGLE_APPLICATION_CREDENTIALS_JSON",
+    "SLACK_SIGNING_SECRET",
+    "SLACK_BOT_TOKEN",
+    "SLACK_ALLOWED_CHANNELS"
+  ],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}
