@@ -1,36 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  /* Warm tan/beige palette inspired by editorial design */
-  --background: #D4C4B0;
-  --background-warm: #C9B8A3;
+  /* Clean gray palette */
+  --background: #DADADA;
   --foreground: #1a1a1a;
-  --foreground-muted: #4a4a4a;
-  --accent: #8B7355;
-  --accent-dark: #6B5744;
-  
-  /* Panel colors */
-  --panel-bg: #E8DED0;
-  --panel-border: #C9B8A3;
-  
-  /* Card colors */
-  --card-bg: #f5f0ea;
-  --card-hover: #ebe4db;
-}
+  --foreground-muted: #666666;
+  --accent: #333333;
+  --accent-dark: #1a1a1a;
 
-.dark {
-  --background: #1a1814;
-  --background-warm: #252118;
-  --foreground: #E8DED0;
-  --foreground-muted: #a89d8f;
-  --accent: #C9B8A3;
-  --accent-dark: #8B7355;
-  
-  --panel-bg: #252118;
-  --panel-border: #3d362c;
-  
-  --card-bg: #2d271f;
-  --card-hover: #3d362c;
+  /* Panel colors */
+  --panel-bg: #ffffff;
+  --panel-border: #e0e0e0;
+
+  /* Card colors */
+  --card-bg: #ffffff;
+  --card-hover: #f5f5f5;
+  --card-border: #ffffff;
 }
 
 @theme inline {
@@ -41,19 +26,19 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-work-sans), 'Work Sans', system-ui, sans-serif;
+  font-family: var(--font-crimson-pro), 'Crimson Pro', Georgia, serif;
 }
 
-/* Body font for UI chrome */
+/* Body font for UI */
 .font-mono-ui {
-  font-family: var(--font-work-sans), 'Work Sans', system-ui, sans-serif;
-  letter-spacing: -0.01em;
+  font-family: var(--font-crimson-pro), 'Crimson Pro', Georgia, serif;
+  letter-spacing: 0;
 }
 
-/* Fraunces display font for headers */
+/* Display font for headers */
 .font-pixel {
-  font-family: var(--font-fraunces), 'Fraunces', serif;
-  font-weight: 500;
+  font-family: var(--font-crimson-pro), 'Crimson Pro', Georgia, serif;
+  font-weight: 600;
 }
 
 /* Custom scrollbar - subtle */
@@ -159,3 +144,15 @@ body {
 .stagger-6 { animation-delay: 0.3s; }
 .stagger-7 { animation-delay: 0.35s; }
 .stagger-8 { animation-delay: 0.4s; }
+
+/* Filter bar expand animation */
+@keyframes filterFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

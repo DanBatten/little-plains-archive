@@ -181,40 +181,50 @@ export class GenericScraper implements ContentScraper {
 
     try {
       console.log(`Taking screenshot of ${url} via Apify...`);
-      
-      // Use Apify's web-scraper or screenshot actor
-      // apify/screenshot-url is a simple, fast actor for screenshots
+
+      // Use Apify's screenshot-url actor
+      // IMPORTANT: The actor expects 'urls' array, not 'url' string
       const run = await this.apifyClient.actor('apify/screenshot-url').call({
-        url,
+        urls: [{ url }],  // Must be array of objects with url property
         viewportWidth: 1280,
         viewportHeight: 800,
         scrollToBottom: false,
-        delayMillis: 2000, // Wait for page to load
+        delay: 2000, // Wait for page to load (renamed from delayMillis)
         waitUntil: 'networkidle2',
       }, {
         timeout: 60, // 60 second timeout
         memory: 1024,
       });
 
-      // Get the screenshot from the key-value store
+      // Get the screenshot from the default dataset
+      const { defaultDatasetId } = run;
+      if (defaultDatasetId) {
+        const dataset = this.apifyClient.dataset(defaultDatasetId);
+        const { items } = await dataset.listItems({ limit: 1 });
+        const firstItem = items[0] as Record<string, unknown> | undefined;
+
+        if (firstItem?.screenshotUrl) {
+          // The actor returns a URL to the screenshot
+          const screenshotUrl = firstItem.screenshotUrl as string;
+          console.log('Screenshot captured successfully:', screenshotUrl);
+          return screenshotUrl;
+        }
+      }
+
+      // Fallback: try key-value store
       const { defaultKeyValueStoreId } = run;
       const store = this.apifyClient.keyValueStore(defaultKeyValueStoreId);
-      
-      // The actor saves screenshot as 'screenshot.png' or 'OUTPUT'
       const record = await store.getRecord('screenshot');
-      
+
       if (record && record.value) {
-        // Return as base64 data URL
-        // The value can be a Buffer or ArrayBuffer depending on the response
         const value = record.value as unknown;
         let base64: string;
-        
+
         if (Buffer.isBuffer(value)) {
           base64 = value.toString('base64');
         } else if (value instanceof ArrayBuffer) {
           base64 = Buffer.from(value).toString('base64');
         } else if (typeof value === 'string') {
-          // Already base64 or URL
           if (value.startsWith('data:') || value.startsWith('http')) {
             return value;
           }
@@ -223,8 +233,8 @@ export class GenericScraper implements ContentScraper {
           console.warn('Unexpected screenshot value type:', typeof value);
           return undefined;
         }
-        
-        console.log('Screenshot captured successfully');
+
+        console.log('Screenshot captured successfully from KV store');
         return `data:image/png;base64,${base64}`;
       }
 

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       .from('content_items')
       .select('*', { count: 'exact' })
       .eq('status', status)
-      .order('created_at', { ascending: false })
+      .order('captured_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (sourceType) {

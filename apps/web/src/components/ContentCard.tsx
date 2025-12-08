@@ -76,17 +76,8 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
           ? getImageUrl(item.images?.[0])
           : null;
 
-  // Size classes - large cards span 2 columns
+  // Size classes - uniform cards
   const getSizeClasses = () => {
-    if (size === 'large') {
-      // For large cards, add position-based column start on xl screens
-      // xl has 4 columns, so right-aligned starts at column 3
-      // 2xl has 5 columns, so right-aligned starts at column 4
-      if (position === 'right') {
-        return 'col-span-1 sm:col-span-2 row-span-1 sm:row-span-2 xl:col-start-3 2xl:col-start-4';
-      }
-      return 'col-span-1 sm:col-span-2 row-span-1 sm:row-span-2';
-    }
     return 'col-span-1 row-span-1';
   };
 
@@ -105,7 +96,8 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
         group flex flex-col overflow-hidden cursor-pointer
         transition-all duration-300 ease-out
         hover:-translate-y-1 hover:shadow-xl
-        bg-[var(--card-bg)]
+        bg-[var(--card-bg)] rounded-xl
+        border-4 border-white
         opacity-0 animate-fade-in-up ${staggerClass}
         ${getSizeClasses()}
       `}
@@ -200,14 +192,17 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
         {/* Topics */}
         {item.topics && item.topics.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-auto pt-2">
-            {item.topics.slice(0, size === 'large' ? 4 : 2).map((topic) => (
-              <span
-                key={topic}
-                className={`px-2 py-0.5 text-xs font-mono-ui ${getTopicColor(topic)}`}
-              >
-                {topic}
-              </span>
-            ))}
+            {item.topics.slice(0, size === 'large' ? 4 : 2).map((topic, idx) => {
+              const topicName = typeof topic === 'string' ? topic : (topic as { name: string }).name;
+              return (
+                <span
+                  key={`${idx}-${topicName}`}
+                  className={`px-2 py-0.5 text-xs font-mono-ui rounded-full ${getTopicColor(topicName)}`}
+                >
+                  {topicName}
+                </span>
+              );
+            })}
             {item.topics.length > (size === 'large' ? 4 : 2) && (
               <span className="px-2 py-0.5 text-[var(--foreground-muted)] text-xs font-mono-ui">
                 +{item.topics.length - (size === 'large' ? 4 : 2)}

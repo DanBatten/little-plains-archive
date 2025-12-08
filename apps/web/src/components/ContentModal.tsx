@@ -71,14 +71,14 @@ function getFaviconUrl(url: string): string {
 }
 
 // Visual share card component - like iMessage/social media previews
-function LinkShareCard({ 
-  url, 
-  title, 
+function LinkShareCard({
+  url,
+  title,
   description,
   screenshot,
-  size = 'default' 
-}: { 
-  url: string; 
+  size = 'default'
+}: {
+  url: string;
   title?: string | null;
   description?: string | null;
   screenshot?: string | null;
@@ -87,7 +87,8 @@ function LinkShareCard({
   const domain = getDomain(url);
   const faviconUrl = getFaviconUrl(url);
   const isCompact = size === 'compact';
-  
+  const hasImage = !!screenshot;
+
   if (isCompact) {
     // Compact version for link lists
     return (
@@ -99,8 +100,8 @@ function LinkShareCard({
       >
         <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent)]/5 flex items-center justify-center flex-shrink-0">
           {faviconUrl && (
-            <img 
-              src={faviconUrl} 
+            <img
+              src={faviconUrl}
               alt={domain}
               className="w-5 h-5 object-contain"
               onError={(e) => { e.currentTarget.style.display = 'none'; }}
@@ -119,8 +120,52 @@ function LinkShareCard({
       </a>
     );
   }
-  
+
   // Full visual share card - like iMessage/social previews
+  // If no screenshot/image, use compact layout instead of showing placeholder
+  if (!hasImage) {
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group flex items-center gap-4 p-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--panel-border)] hover:border-[var(--accent)]/50 hover:shadow-lg transition-all duration-200"
+      >
+        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-[var(--accent)]/20 to-[var(--accent)]/5 flex items-center justify-center flex-shrink-0">
+          {faviconUrl ? (
+            <img
+              src={faviconUrl}
+              alt={domain}
+              className="w-8 h-8 object-contain"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          ) : (
+            <svg className="w-8 h-8 text-[var(--foreground-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+            </svg>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="text-xs font-medium text-[var(--foreground-muted)] uppercase tracking-wider">
+            {domain}
+          </span>
+          {title && (
+            <h4 className="font-semibold text-[var(--foreground)] group-hover:text-[var(--accent-dark)] transition-colors line-clamp-2 mt-1">
+              {title}
+            </h4>
+          )}
+          {description && (
+            <p className="text-sm text-[var(--foreground-muted)] line-clamp-2 mt-1">{description}</p>
+          )}
+        </div>
+        <svg className="w-5 h-5 text-[var(--foreground-muted)] group-hover:text-[var(--accent-dark)] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+        </svg>
+      </a>
+    );
+  }
+
+  // Full card with image
   return (
     <a
       href={url}
@@ -128,52 +173,23 @@ function LinkShareCard({
       rel="noopener noreferrer"
       className="group block overflow-hidden rounded-2xl border border-[var(--panel-border)] hover:border-[var(--accent)]/50 hover:shadow-xl transition-all duration-300"
     >
-      {/* Screenshot or visual header */}
-      <div className="relative aspect-[16/9] bg-gradient-to-br from-[#1a1a1a] via-[#2d2d2d] to-[#1a1a1a] overflow-hidden">
-        {screenshot ? (
-          // Show screenshot if available
-          <img 
-            src={screenshot}
-            alt={`Screenshot of ${domain}`}
-            className="w-full h-full object-cover object-top group-hover:scale-[1.02] transition-transform duration-500"
-          />
-        ) : (
-          // Fallback: pattern + favicon
-          <>
-            <div className="absolute inset-0 opacity-10" style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-            }} />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
-                {faviconUrl ? (
-                  <img 
-                    src={faviconUrl} 
-                    alt={domain}
-                    className="w-10 h-10 object-contain"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
-                ) : (
-                  <svg className="w-10 h-10 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                  </svg>
-                )}
-              </div>
-            </div>
-          </>
-        )}
-        
+      {/* Screenshot/image header */}
+      <div className="relative aspect-[16/9] bg-[var(--card-bg)] overflow-hidden">
+        <img
+          src={screenshot}
+          alt={`Screenshot of ${domain}`}
+          className="w-full h-full object-cover object-top group-hover:scale-[1.02] transition-transform duration-500"
+        />
         {/* Gradient overlay at bottom for text readability */}
-        {screenshot && (
-          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/60 to-transparent" />
-        )}
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/60 to-transparent" />
       </div>
-      
+
       {/* Content area */}
       <div className="p-4 bg-[var(--card-bg)]">
         <div className="flex items-center gap-2 mb-2">
           {faviconUrl && (
-            <img 
-              src={faviconUrl} 
+            <img
+              src={faviconUrl}
               alt=""
               className="w-4 h-4 object-contain"
             />
@@ -408,7 +424,7 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
       {/* Modal container - fullscreen on mobile/tablet, padded on desktop (lg+) */}
       <div className="relative w-full h-full pt-0 lg:pt-[73px] px-0 lg:px-12 pb-0 lg:pb-12">
         {/* Modal card */}
-        <div className="w-full h-full flex flex-col bg-[var(--panel-bg)] overflow-hidden">
+        <div className="w-full h-full flex flex-col bg-[var(--panel-bg)] overflow-hidden lg:rounded-2xl">
           {/* Full-width header */}
           <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4 border-b border-[var(--panel-border)]">
             <div className="flex items-center gap-3">
@@ -431,9 +447,11 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
             </div>
             <button
               onClick={onClose}
-              className="font-mono-ui text-sm text-[var(--foreground-muted)] hover:text-[var(--foreground)] transition-colors"
+              className="w-10 h-10 rounded-full bg-[var(--card-bg)] hover:bg-[var(--card-hover)] border border-[var(--panel-border)] flex items-center justify-center transition-colors"
             >
-              [ close ]
+              <svg className="w-5 h-5 text-[var(--foreground)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
 
@@ -541,7 +559,7 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
                       return (
                         <span
                           key={topic}
-                          className={`px-3 py-1.5 ${color.bg} ${color.text} font-mono-ui text-xs`}
+                          className={`px-3 py-1.5 rounded-full ${color.bg} ${color.text} font-mono-ui text-xs`}
                         >
                           {topic}
                         </span>
@@ -561,7 +579,7 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
                       return (
                         <span
                           key={useCase}
-                          className={`px-3 py-1.5 ${color.bg} ${color.text} font-mono-ui text-xs`}
+                          className={`px-3 py-1.5 rounded-full ${color.bg} ${color.text} font-mono-ui text-xs`}
                         >
                           {useCase}
                         </span>
@@ -637,7 +655,7 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
               <div className="hidden lg:flex lg:w-3/5 flex-col overflow-hidden border-l border-[var(--panel-border)]">
                 <div className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-4">
                   {allMedia.map((media, index) => (
-                    <div key={index} className="w-full">
+                    <div key={index} className="w-full overflow-hidden rounded-2xl">
                       {media.type === 'video' ? (
                         <video
                           src={media.url}

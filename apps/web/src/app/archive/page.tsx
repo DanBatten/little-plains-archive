@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import { ContentGrid } from '@/components/ContentGrid';
 import { Sidebar } from '@/components/Sidebar';
 import { ContentModal } from '@/components/ContentModal';
-import { SearchBar } from '@/components/SearchBar';
-import { HeroHeader } from '@/components/HeroHeader';
-import { FolderIcon } from '@/components/FolderIcon';
+import { getTopicColor } from '@/components/ContentCard';
 import type { ContentItem, FiltersData, ItemsResponse } from '@/types/content';
 
 interface SearchIntent {
@@ -33,6 +32,8 @@ export default function ArchivePage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchIntent, setSearchIntent] = useState<SearchIntent | null>(null);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,6 +45,7 @@ export default function ArchivePage() {
   const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
   const [latestItemDate, setLatestItemDate] = useState<Date | null>(null);
+  const [oldestItemDate, setOldestItemDate] = useState<Date | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // Debounced search value
@@ -129,9 +131,13 @@ export default function ArchivePage() {
         setTotal(data.total);
         setHasMore(data.items.length === ITEMS_PER_PAGE);
         
-        // Set latest item date from first item (items are sorted newest first)
+        // Set latest and oldest item dates (items are sorted newest first)
         if (pageNum === 1 && data.items.length > 0 && !selectedSourceType && !selectedTopic) {
           setLatestItemDate(new Date(data.items[0].created_at));
+        }
+        // Track oldest date as we load more
+        if (data.items.length > 0) {
+          setOldestItemDate(new Date(data.items[data.items.length - 1].created_at));
         }
       }
     } catch (error) {
@@ -183,8 +189,18 @@ export default function ArchivePage() {
     setHasMore(true);
   }, [selectedSourceType, selectedTopic, debouncedSearch]);
 
+  // Format date range for display
+  const formatDateRange = () => {
+    if (!latestItemDate || !oldestItemDate) return null;
+    const formatDate = (date: Date) => date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    const latest = formatDate(latestItemDate);
+    const oldest = formatDate(oldestItemDate);
+    if (latest === oldest) return latest;
+    return `${oldest} — ${latest}`;
+  };
+
   return (
-    <div className="min-h-screen bg-[var(--background)]">
+    <div className="min-h-screen bg-[var(--background)] pb-20">
       {/* Slide-in Sidebar */}
       <Sidebar
         filters={filters}
@@ -196,222 +212,257 @@ export default function ArchivePage() {
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      {/* Main content - full width */}
-      <main className="w-full">
-        {/* Header */}
-        <header className="sticky top-0 z-30 bg-[var(--background)]/90 panel-backdrop border-b border-[var(--panel-border)]">
-          <div className="px-6 sm:px-8 lg:px-12 py-4">
-            {/* Top row - Brand, Filter (mobile), Search (desktop) */}
-            <div className="flex items-center justify-between gap-4 sm:gap-8">
-              {/* Brand */}
-              <div className="flex items-center gap-3">
-                <span className="font-pixel text-lg tracking-tight text-[var(--foreground)]">
-                  ARCHIVE
-                </span>
-                <FolderIcon size="sm" className="text-[var(--foreground)]" />
-              </div>
+      {/* Floating Search Bar at Top */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-md">
+        <div className={`
+          flex items-center gap-3 pl-1.5 pr-4 py-1.5
+          bg-white/30 backdrop-blur-xl
+          border-2 border-white/50
+          rounded-full shadow-lg
+          transition-all duration-300
+          ${isSearchFocused ? 'shadow-xl bg-white/50' : ''}
+        `}>
+          {/* LP Icon */}
+          <div className="flex-shrink-0 w-9 h-9 rounded-full bg-white flex items-center justify-center">
+            <Image
+              src="/LP-icon.png"
+              alt="Little Plains"
+              width={24}
+              height={24}
+            />
+          </div>
 
-              {/* Mobile: Filter button only */}
-              <button
-                onClick={() => setIsSidebarOpen(true)}
-                className={`
-                  sm:hidden font-mono-ui text-sm transition-colors flex items-center gap-2
-                  ${hasActiveFilters 
-                    ? 'text-[var(--foreground)]' 
-                    : 'text-[var(--foreground-muted)] hover:text-[var(--foreground)]'
-                  }
-                `}
-              >
-                <span>{hasActiveFilters ? '[+]' : '[ ]'}</span>
-                <span>Filters</span>
-                {hasActiveFilters && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
-                )}
-              </button>
+          {/* Search input */}
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+            placeholder="Type here to find what you're looking for..."
+            className="flex-1 bg-transparent text-[var(--foreground)] placeholder-[var(--foreground-muted)] text-sm outline-none"
+          />
 
-              {/* Desktop: Search and filters */}
-              <div className="hidden sm:block flex-1 max-w-2xl">
-                <SearchBar
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                  onFilterClick={() => setIsSidebarOpen(true)}
-                  hasActiveFilters={hasActiveFilters}
-                  placeholder="Search with natural language..."
-                />
-              </div>
+          {/* Clear button */}
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--background)] text-[var(--foreground-muted)] hover:text-[var(--foreground)] transition-colors"
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
 
-              {/* Right side stats - hidden until lg breakpoint to give search bar more room */}
-              <div className="hidden lg:flex items-center gap-4 text-[var(--foreground-muted)]">
-                <span className="font-mono-ui text-sm">
-                  {total} items
-                </span>
-                {latestItemDate && (
-                  <>
-                    <span className="opacity-30">|</span>
-                    <span className="font-mono-ui text-sm">
-                      Last updated: {latestItemDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} {latestItemDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Mobile: Search bar on its own row */}
-            <div className="sm:hidden mt-3">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg
-                    className="w-4 h-4 text-[var(--foreground-muted)]"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
+      {/* Main content */}
+      <main className="w-full pt-24 px-4 sm:px-6 lg:px-8">
+        {/* Search results info with AI intent */}
+        {!isLoading && debouncedSearch && (
+          <div className="mb-6 text-center">
+            <p className="font-mono-ui text-sm text-[var(--foreground-muted)]">
+              {total} {total === 1 ? 'result' : 'results'} for "{debouncedSearch}"
+            </p>
+            {searchIntent && (searchIntent.topics.length > 0 || searchIntent.keywords.length > 0) && (
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                {searchIntent.keywords.map((keyword, i) => (
+                  <span
+                    key={`kw-${i}-${keyword}`}
+                    className="px-2 py-0.5 bg-[var(--card-bg)] text-[var(--foreground-muted)] font-mono-ui text-xs rounded"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search with natural language..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-transparent text-[var(--foreground)] placeholder-[var(--foreground-muted)] font-mono-ui text-sm outline-none"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--foreground-muted)] hover:text-[var(--foreground)] transition-colors"
+                    {keyword}
+                  </span>
+                ))}
+                {searchIntent.topics.map((topic, i) => (
+                  <span
+                    key={`st-${i}-${topic}`}
+                    className="px-2 py-0.5 bg-violet-500 text-white font-mono-ui text-xs rounded"
                   >
-                    <span className="font-mono-ui text-xs">[ clear ]</span>
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Active filters row */}
-            {hasActiveFilters && (
-              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-[var(--panel-border)]">
-                <span className="font-mono-ui text-xs uppercase tracking-wider text-[var(--foreground-muted)]">
-                  Active:
-                </span>
-                {selectedSourceType && (
-                  <button
-                    onClick={() => setSelectedSourceType(null)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--card-bg)] text-[var(--foreground)] font-mono-ui text-xs hover:bg-[var(--card-hover)] transition-colors"
+                    {topic}
+                  </span>
+                ))}
+                {searchIntent.useCases.map((useCase, i) => (
+                  <span
+                    key={`uc-${i}-${useCase}`}
+                    className="px-2 py-0.5 bg-blue-500 text-white font-mono-ui text-xs rounded"
                   >
-                    {selectedSourceType}
-                    <span className="opacity-50">×</span>
-                  </button>
-                )}
-                {selectedTopic && (
-                  <button
-                    onClick={() => setSelectedTopic(null)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--card-bg)] text-[var(--foreground)] font-mono-ui text-xs hover:bg-[var(--card-hover)] transition-colors"
-                  >
-                    {selectedTopic}
-                    <span className="opacity-50">×</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setSelectedSourceType(null);
-                    setSelectedTopic(null);
-                  }}
-                  className="font-mono-ui text-xs text-[var(--foreground-muted)] hover:text-[var(--foreground)] transition-colors ml-auto"
-                >
-                  [ clear all ]
-                </button>
+                    {useCase}
+                  </span>
+                ))}
               </div>
             )}
           </div>
-        </header>
+        )}
 
-        {/* Hero Header - show when not searching */}
-        <HeroHeader isVisible={!debouncedSearch && !hasActiveFilters} />
+        {/* Initial loading state */}
+        {isLoading && items.length === 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 lg:gap-16">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div
+                key={i}
+                className="aspect-[4/3] bg-white/80 border-4 border-white animate-pulse rounded-xl"
+              />
+            ))}
+          </div>
+        ) : (
+          <>
+            <ContentGrid
+              items={items}
+              onItemClick={setSelectedItem}
+            />
 
-        {/* Content */}
-        <div className="px-6 sm:px-8 lg:px-12 py-8">
-          {/* Search results info with AI intent */}
-          {!isLoading && debouncedSearch && (
-            <div className="mb-6">
-              <p className="font-mono-ui text-sm text-[var(--foreground-muted)]">
-                {total} {total === 1 ? 'result' : 'results'} for "{debouncedSearch}"
-              </p>
-              {searchIntent && (searchIntent.topics.length > 0 || searchIntent.keywords.length > 0) && (
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <span className="font-mono-ui text-xs text-[var(--foreground-muted)] opacity-60">
-                    Searching:
+            {/* Load more trigger / loading indicator */}
+            <div ref={loadMoreRef} className="mt-8 py-8">
+              {isLoadingMore && (
+                <div className="flex items-center justify-center gap-3">
+                  <div className="w-4 h-4 border-2 border-[var(--foreground-muted)] border-t-transparent rounded-full animate-spin" />
+                  <span className="font-mono-ui text-sm text-[var(--foreground-muted)]">
+                    Loading more...
                   </span>
-                  {searchIntent.keywords.map((keyword) => (
-                    <span
-                      key={keyword}
-                      className="px-2 py-0.5 bg-[var(--card-bg)] text-[var(--foreground-muted)] font-mono-ui text-xs"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                  {searchIntent.topics.map((topic) => (
-                    <span
-                      key={topic}
-                      className="px-2 py-0.5 bg-violet-500 text-white font-mono-ui text-xs"
-                    >
-                      {topic}
-                    </span>
-                  ))}
-                  {searchIntent.useCases.map((useCase) => (
-                    <span
-                      key={useCase}
-                      className="px-2 py-0.5 bg-blue-500 text-white font-mono-ui text-xs"
-                    >
-                      {useCase}
-                    </span>
-                  ))}
                 </div>
               )}
+              {!hasMore && items.length > 0 && (
+                <p className="text-center font-mono-ui text-sm text-[var(--foreground-muted)]">
+                  End of archive
+                </p>
+              )}
             </div>
-          )}
-
-          {/* Initial loading state */}
-          {isLoading && items.length === 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="aspect-[4/3] bg-[var(--card-bg)] animate-pulse"
-                />
-              ))}
-            </div>
-          ) : (
-            <>
-              <ContentGrid
-                items={items}
-                onItemClick={setSelectedItem}
-              />
-
-              {/* Load more trigger / loading indicator */}
-              <div ref={loadMoreRef} className="mt-12 pt-8 border-t border-[var(--panel-border)]">
-                {isLoadingMore && (
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-4 h-4 border-2 border-[var(--foreground-muted)] border-t-transparent rounded-full animate-spin" />
-                    <span className="font-mono-ui text-sm text-[var(--foreground-muted)]">
-                      Loading more...
-                    </span>
-                  </div>
-                )}
-                {!hasMore && items.length > 0 && (
-                  <p className="text-center font-mono-ui text-sm text-[var(--foreground-muted)]">
-                    End of archive · {total} items
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+          </>
+        )}
       </main>
+
+      {/* Bottom Left - Item Count */}
+      <div className="fixed bottom-4 left-4 z-40">
+        <div className="flex items-center gap-2 px-4 py-2 bg-white/30 backdrop-blur-xl border-2 border-white/50 rounded-full shadow-lg">
+          <span className="text-sm text-[var(--foreground-muted)]">–</span>
+          <span className="text-sm text-[var(--foreground)]">{total}</span>
+          <span className="text-sm text-[var(--foreground-muted)]">+</span>
+        </div>
+      </div>
+
+      {/* Bottom Right - Date Range */}
+      {formatDateRange() && (
+        <div className="fixed bottom-4 right-4 z-40">
+          <div className="flex items-center px-4 py-2 bg-white/30 backdrop-blur-xl border-2 border-white/50 rounded-full shadow-lg">
+            <span className="text-sm text-[var(--foreground)]">
+              {formatDateRange()}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Center - Filter Bar */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
+        <div
+          className="bg-white/30 backdrop-blur-xl border-2 border-white/50 shadow-lg transition-all duration-300 ease-out w-[500px] max-w-[calc(100vw-32px)]"
+          style={{ borderRadius: 25 }}
+        >
+          {/* Expanded content with grid animation */}
+          <div
+            className="grid transition-[grid-template-rows] duration-300 ease-out"
+            style={{ gridTemplateRows: isFilterExpanded ? '1fr' : '0fr' }}
+          >
+            <div className="overflow-hidden">
+              <div
+                className={`
+                  px-5 pt-4 pb-3 transition-opacity duration-200
+                  ${isFilterExpanded ? 'opacity-100 delay-100' : 'opacity-0'}
+                `}
+              >
+                {/* Source Types */}
+                <div className="mb-4">
+                  <p className="text-xs text-[var(--foreground-muted)] mb-2 uppercase tracking-wide">Source</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {filters?.sourceTypes?.map((type, index) => (
+                      <button
+                        key={`source-${index}-${type.name}`}
+                        onClick={() => setSelectedSourceType(selectedSourceType === type.name ? null : type.name)}
+                        className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+                          selectedSourceType === type.name
+                            ? 'bg-[var(--foreground)] text-white'
+                            : 'bg-gray-100 text-[var(--foreground)] hover:bg-gray-200'
+                        }`}
+                      >
+                        {type.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Topics - stacked/wrapped */}
+                <div>
+                  <p className="text-xs text-[var(--foreground-muted)] mb-2 uppercase tracking-wide">Topics</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {filters?.topics?.slice(0, 12).map((topic, index) => (
+                      <button
+                        key={`expanded-topic-${index}-${topic.name}`}
+                        onClick={() => setSelectedTopic(selectedTopic === topic.name ? null : topic.name)}
+                        className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+                          selectedTopic === topic.name
+                            ? 'bg-[var(--foreground)] text-white'
+                            : `${getTopicColor(topic.name)} hover:opacity-80`
+                        }`}
+                      >
+                        {topic.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main filter row */}
+          <div className={`flex items-center justify-center gap-3 px-4 py-2.5 ${isFilterExpanded ? 'border-t border-gray-100' : ''}`}>
+            {/* All button */}
+            <button
+              onClick={() => {
+                setSelectedTopic(null);
+                setSelectedSourceType(null);
+              }}
+              className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+                !hasActiveFilters
+                  ? 'bg-[var(--foreground)] text-white'
+                  : 'text-[var(--foreground)] hover:bg-gray-100'
+              }`}
+            >
+              All
+            </button>
+
+            {/* Quick topic filters */}
+            {filters?.topics?.slice(0, 4).map((topic, index) => (
+              <button
+                key={`topic-${index}-${topic.name}`}
+                onClick={() => setSelectedTopic(selectedTopic === topic.name ? null : topic.name)}
+                className={`px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap ${
+                  selectedTopic === topic.name
+                    ? 'bg-[var(--foreground)] text-white'
+                    : `${getTopicColor(topic.name)} hover:opacity-80`
+                }`}
+              >
+                {topic.name}
+              </button>
+            ))}
+
+            {/* Expand button */}
+            <button
+              onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-colors ml-auto"
+            >
+              <svg
+                className={`w-4 h-4 text-[var(--foreground-muted)] transition-transform ${isFilterExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Detail modal */}
       <ContentModal

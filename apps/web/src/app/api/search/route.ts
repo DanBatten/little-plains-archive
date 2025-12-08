@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
       .from('content_items')
       .select('*', { count: 'exact' })
       .eq('status', 'complete')
-      .order('created_at', { ascending: false });
+      .order('captured_at', { ascending: false });
 
     // Build OR conditions for text-based search
     // Focus on description/summary as they contain the AI-analyzed content
@@ -232,7 +232,7 @@ export async function GET(request: NextRequest) {
     .select('*', { count: 'exact' })
     .eq('status', 'complete')
     .or(`title.ilike.%${query}%,description.ilike.%${query}%,summary.ilike.%${query}%,body_text.ilike.%${query}%`)
-    .order('created_at', { ascending: false })
+    .order('captured_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (error) {
