@@ -212,9 +212,9 @@ export default function ArchivePage() {
       />
 
       {/* Top Bar - Logo and Search */}
-      <div className="fixed top-[40px] z-40 flex items-center gap-4 px-4 sm:px-6 lg:px-8 left-0 right-0">
-        {/* Logo - matches search bar: py-1.5 (12px) + h-9 icon (36px) + border (4px) = 52px */}
-        <div className="flex-shrink-0 px-5 bg-white/30 backdrop-blur-xl border-2 border-white/50 rounded-full shadow-lg flex items-center justify-center h-[52px]">
+      <div className="fixed top-4 sm:top-[40px] z-40 flex items-center gap-4 px-4 sm:px-6 lg:px-8 left-0 right-0">
+        {/* Logo - hidden on mobile */}
+        <div className="hidden sm:flex flex-shrink-0 px-5 bg-white/30 backdrop-blur-xl border-2 border-white/50 rounded-full shadow-lg items-center justify-center h-[52px]">
           <Image
             src="/Logo.png"
             alt="Little Plains Archive"
@@ -270,7 +270,7 @@ export default function ArchivePage() {
       </div>
 
       {/* Main content */}
-      <main className="w-full pt-[152px] px-4 sm:px-6 lg:px-8">
+      <main className="w-full pt-20 sm:pt-[152px] px-4 sm:px-6 lg:px-8">
         {/* Search results info with AI intent */}
         {!isLoading && debouncedSearch && (
           <div className="mb-6 text-center">
@@ -345,17 +345,17 @@ export default function ArchivePage() {
         )}
       </main>
 
-      {/* Bottom Left - Item Count */}
-      <div className="fixed bottom-4 left-4 z-40">
+      {/* Bottom Left - Item Count (hidden on mobile) */}
+      <div className="hidden sm:block fixed bottom-4 left-4 z-40">
         <div className="flex items-center gap-1.5 px-4 py-2 bg-white/30 backdrop-blur-xl border-2 border-white/50 rounded-full shadow-lg">
           <span className="text-sm text-[var(--foreground)]">{total}</span>
           <span className="text-sm text-[var(--foreground-muted)]">posts</span>
         </div>
       </div>
 
-      {/* Bottom Right - Last Updated */}
+      {/* Bottom Right - Last Updated (hidden on mobile) */}
       {formatLastUpdated() && (
-        <div className="fixed bottom-4 right-4 z-40">
+        <div className="hidden sm:block fixed bottom-4 right-4 z-40">
           <div className="flex items-center px-4 py-2 bg-white/30 backdrop-blur-xl border-2 border-white/50 rounded-full shadow-lg">
             <span className="text-sm text-[var(--foreground)]">
               {formatLastUpdated()}
@@ -365,9 +365,9 @@ export default function ArchivePage() {
       )}
 
       {/* Bottom Center - Filter Bar */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
+      <div className="fixed bottom-4 left-0 right-0 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40 px-4 sm:px-0">
         <div
-          className="bg-white/30 backdrop-blur-xl border-2 border-white/50 shadow-lg transition-all duration-300 ease-out w-[640px] max-w-[calc(100vw-32px)]"
+          className="bg-white/30 backdrop-blur-xl border-2 border-white/50 shadow-lg transition-all duration-300 ease-out w-full sm:w-[640px] max-w-md sm:max-w-none mx-auto sm:mx-0"
           style={{ borderRadius: 28 }}
         >
           {/* Expanded content with grid animation */}
@@ -426,13 +426,30 @@ export default function ArchivePage() {
 
           {/* Main filter row */}
           <div className={`flex items-center justify-center gap-2.5 px-4 py-2.5 ${isFilterExpanded ? 'border-t border-gray-100' : ''}`}>
-            {/* All button */}
+            {/* Mobile: Filters button */}
+            <button
+              onClick={() => setIsFilterExpanded(!isFilterExpanded)}
+              className="sm:hidden flex items-center gap-2 px-4 py-1.5 text-sm text-[var(--foreground)]"
+            >
+              <span>Filters</span>
+              <svg
+                className={`w-4 h-4 text-[var(--foreground-muted)] transition-transform ${isFilterExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+
+            {/* Desktop: All button */}
             <button
               onClick={() => {
                 setSelectedTopic(null);
                 setSelectedSourceType(null);
               }}
-              className={`px-3.5 py-1.5 text-sm rounded-full transition-colors ${
+              className={`hidden sm:block px-3.5 py-1.5 text-sm rounded-full transition-colors ${
                 !hasActiveFilters
                   ? 'bg-[var(--foreground)] text-white'
                   : 'text-[var(--foreground)] hover:bg-gray-100'
@@ -441,12 +458,12 @@ export default function ArchivePage() {
               All
             </button>
 
-            {/* Quick topic filters */}
+            {/* Desktop: Quick topic filters */}
             {['Technology', 'Design', 'AI', 'Culture', 'Engineering'].map((topic, index) => (
               <button
                 key={`topic-${index}-${topic}`}
                 onClick={() => setSelectedTopic(selectedTopic === topic ? null : topic)}
-                className={`px-3.5 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap ${
+                className={`hidden sm:block px-3.5 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap ${
                   selectedTopic === topic
                     ? 'bg-[var(--foreground)] text-white'
                     : `${getTopicColor(topic)} hover:opacity-80`
@@ -456,10 +473,10 @@ export default function ArchivePage() {
               </button>
             ))}
 
-            {/* Expand button */}
+            {/* Desktop: Expand button */}
             <button
               onClick={() => setIsFilterExpanded(!isFilterExpanded)}
-              className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-colors ml-auto"
+              className="hidden sm:flex items-center justify-center w-8 h-8 rounded-full hover:bg-gray-100 transition-colors ml-auto"
             >
               <svg
                 className={`w-4 h-4 text-[var(--foreground-muted)] transition-transform ${isFilterExpanded ? 'rotate-180' : ''}`}
