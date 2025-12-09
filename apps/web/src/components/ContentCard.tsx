@@ -44,6 +44,11 @@ function getImageUrl(image: { url?: string; publicUrl?: string; originalUrl?: st
   return image.publicUrl || image.originalUrl || image.url || null;
 }
 
+// Check if image has a reliable GCS URL (our storage, always works)
+function hasGcsUrl(image: { publicUrl?: string } | undefined): boolean {
+  return !!image?.publicUrl?.includes('storage.googleapis.com');
+}
+
 export function ContentCard({ item, size = 'medium', position = 'auto', onClick, index = 0 }: ContentCardProps) {
   const hasImage = item.images && item.images.length > 0;
   const hasVideo = item.videos && item.videos.length > 0;
@@ -66,15 +71,26 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
     return '/twitter-fallback.png'; // Watercolor fallback for text-only tweets
   };
 
+  // For social posts: prefer images with GCS URLs (reliable), then video thumbnails, then any image
+  const getSocialThumbnail = () => {
+    // First: check if we have an image stored in GCS (most reliable)
+    const gcsImage = item.images?.find(img => hasGcsUrl(img));
+    if (gcsImage) return getImageUrl(gcsImage);
+
+    // Second: try video thumbnail (may be external CDN - less reliable)
+    if (hasVideo && item.videos?.[0]?.thumbnail) return item.videos[0].thumbnail;
+
+    // Third: any image we have
+    if (hasImage) return getImageUrl(item.images?.[0]);
+
+    return null;
+  };
+
   const thumbnail = item.source_type === 'web'
     ? getWebThumbnail()
     : item.source_type === 'twitter'
       ? getTwitterThumbnail()
-      : hasVideo && item.videos?.[0]?.thumbnail
-        ? item.videos[0].thumbnail
-        : hasImage
-          ? getImageUrl(item.images?.[0])
-          : null;
+      : getSocialThumbnail();
 
   // Size classes - uniform cards
   const getSizeClasses = () => {

@@ -249,6 +249,51 @@ function TextWithLinks({ text }: { text: string }) {
   );
 }
 
+// Video player with play button overlay
+function VideoWithPlayButton({ src, poster, className = '' }: { src: string; poster?: string; className?: string }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handlePlay = () => {
+    setIsPlaying(true);
+    // Small delay to ensure video element is rendered
+    setTimeout(() => {
+      videoRef.current?.play();
+    }, 100);
+  };
+
+  if (!isPlaying && poster) {
+    return (
+      <div className={`relative cursor-pointer group ${className}`} onClick={handlePlay}>
+        <img
+          src={poster}
+          alt="Video thumbnail"
+          className="w-full h-auto"
+        />
+        {/* Play button overlay */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-20 h-20 rounded-full bg-black/60 group-hover:bg-black/80 flex items-center justify-center transition-colors">
+            <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      poster={poster}
+      controls
+      autoPlay={isPlaying}
+      className={`w-full h-auto ${className}`}
+    />
+  );
+}
+
 // Horizontal swipeable gallery for mobile
 function MobileGallery({ media }: { media: Array<{ type: 'video' | 'image'; url: string; thumbnail?: string }> }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -280,11 +325,10 @@ function MobileGallery({ media }: { media: Array<{ type: 'video' | 'image'; url:
             className="w-full flex-shrink-0 snap-center"
           >
             {item.type === 'video' ? (
-              <video
+              <VideoWithPlayButton
                 src={item.url}
                 poster={item.thumbnail}
-                controls
-                className="w-full h-auto max-h-[40vh] object-contain bg-black"
+                className="max-h-[40vh] object-contain bg-black"
               />
             ) : (
               <img
@@ -361,31 +405,51 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
     return item.body_text.slice(0, RAW_CONTENT_CHAR_LIMIT) + '...';
   }, [item?.body_text, rawContentNeedsTruncation, isRawContentExpanded]);
 
-  // Collect all media (videos first, then images)
+  // Get first GCS-hosted image to use as fallback poster for videos
+  const fallbackPoster = useMemo(() => {
+    if (!item?.images) return null;
+    const gcsImage = item.images.find(img => img.publicUrl?.includes('storage.googleapis.com'));
+    return gcsImage ? getImageUrl(gcsImage) : getImageUrl(item.images[0]);
+  }, [item?.images]);
+
+  // Collect all media (images first for reliable thumbnails, then videos)
   const allMedia = useMemo(() => {
     if (!item) return [];
     const media: Array<{ type: 'video' | 'image'; url: string; thumbnail?: string }> = [];
-    
-    if (item.videos && item.videos.length > 0) {
-      item.videos.forEach(video => {
-        const url = video.originalUrl || video.url;
-        if (url) {
-          media.push({ type: 'video', url, thumbnail: video.thumbnail });
-        }
-      });
-    }
-    
+
+    // Images first - prefer GCS URLs as they're most reliable
     if (item.images && item.images.length > 0) {
-      item.images.forEach(image => {
+      // Sort to put GCS-hosted images first
+      const sortedImages = [...item.images].sort((a, b) => {
+        const aHasGcs = a.publicUrl?.includes('storage.googleapis.com') ? 1 : 0;
+        const bHasGcs = b.publicUrl?.includes('storage.googleapis.com') ? 1 : 0;
+        return bHasGcs - aHasGcs;
+      });
+
+      sortedImages.forEach(image => {
         const url = getImageUrl(image);
         if (url) {
           media.push({ type: 'image', url });
         }
       });
     }
-    
+
+    // Videos after images - use fallbackPoster if thumbnail is external CDN
+    if (item.videos && item.videos.length > 0) {
+      item.videos.forEach(video => {
+        const url = video.originalUrl || video.url;
+        if (url) {
+          // Use GCS-hosted image as poster if video thumbnail is from external CDN
+          const poster = video.thumbnail?.includes('storage.googleapis.com')
+            ? video.thumbnail
+            : fallbackPoster || video.thumbnail;
+          media.push({ type: 'video', url, thumbnail: poster || undefined });
+        }
+      });
+    }
+
     return media;
-  }, [item]);
+  }, [item, fallbackPoster]);
 
   if (!item) return null;
 
@@ -665,11 +729,9 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
                   {allMedia.map((media, index) => (
                     <div key={index} className="w-full overflow-hidden rounded-2xl">
                       {media.type === 'video' ? (
-                        <video
+                        <VideoWithPlayButton
                           src={media.url}
                           poster={media.thumbnail}
-                          controls
-                          className="w-full h-auto"
                         />
                       ) : (
                         <img
