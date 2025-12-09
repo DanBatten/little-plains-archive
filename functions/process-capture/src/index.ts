@@ -76,7 +76,7 @@ export async function processCapture(
     Buffer.from(messageData, 'base64').toString('utf-8')
   );
 
-  const { captureId, url, sourceType, notes } = message;
+  const { captureId, url, sourceType, notes, slackContext } = message;
   console.log(`Processing capture ${captureId}: ${url} (${sourceType})`);
 
   try {
@@ -100,7 +100,7 @@ export async function processCapture(
 
     // Step 4: Save to Supabase
     console.log('Step 4: Saving to database...');
-    await saveToDatabase(captureId, url, content, analysis, processedMedia, notes);
+    await saveToDatabase(captureId, url, content, analysis, processedMedia, notes, slackContext);
 
     const duration = Date.now() - startTime;
     console.log(`Capture ${captureId} completed in ${duration}ms`);
@@ -279,7 +279,8 @@ async function saveToDatabase(
   content: ExtractedContent,
   analysis: AnalysisResult,
   media: { images: ProcessedMedia[]; videos: ProcessedMedia[]; screenshot?: string },
-  notes?: string
+  notes?: string,
+  slackContext?: { userName?: string; userId?: string; channelId?: string; messageTs?: string }
 ): Promise<void> {
   const { error } = await supabase
     .from('content_items')
@@ -308,6 +309,7 @@ async function saveToDatabase(
         ...content.platformData,
         ...(notes ? { user_notes: notes } : {}),
         ...(media.screenshot ? { screenshot: media.screenshot } : {}),
+        ...(slackContext?.userName ? { submitted_by: slackContext.userName } : {}),
       },
 
       // Status

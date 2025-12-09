@@ -88,7 +88,8 @@ export interface ContentItemRow {
 export async function createCapture(
   url: string,
   sourceType: SourceType,
-  notes?: string
+  notes?: string,
+  slackUser?: { userId?: string; userName?: string }
 ): Promise<{ id: string } | null> {
   const { data, error } = await getSupabaseAdmin()
     .from('content_items')
@@ -103,6 +104,8 @@ export async function createCapture(
       disciplines: [],
       use_cases: [],
       platform_data: notes ? { user_notes: notes } : null,
+      slack_user_id: slackUser?.userId || null,
+      slack_user_name: slackUser?.userName || null,
     })
     .select('id')
     .single();

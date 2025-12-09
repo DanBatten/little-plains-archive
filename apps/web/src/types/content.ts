@@ -27,6 +27,8 @@ export interface ContentItem {
   use_cases: string[] | null;
   content_type: string | null;
   platform_data: Record<string, unknown> | null;
+  slack_user_id: string | null;
+  slack_user_name: string | null;
   status: 'pending' | 'processing' | 'complete' | 'failed';
   error_message: string | null;
   captured_at: string | null;

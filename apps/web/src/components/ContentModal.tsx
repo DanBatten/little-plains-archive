@@ -467,9 +467,17 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
             {/* Text content */}
             <div className={`flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 ${hasMedia || isSocialWithoutMedia ? 'lg:w-2/5' : 'w-full'}`}>
               {/* Title */}
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-medium text-[var(--foreground)] mb-4 sm:mb-6 leading-tight">
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-medium text-[var(--foreground)] mb-2 leading-tight">
                 {item.title || 'Untitled'}
               </h2>
+
+              {/* Attribution */}
+              {item.slack_user_name && (
+                <p className="text-sm text-[var(--foreground-muted)] mb-4 sm:mb-6">
+                  Saved by {item.slack_user_name}
+                </p>
+              )}
+              {!item.slack_user_name && <div className="mb-2 sm:mb-4" />}
 
               {/* Summary - Primary content */}
               {item.summary && (

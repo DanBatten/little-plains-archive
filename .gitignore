@@ -33,3 +33,4 @@ Thumbs.db
 
 # Testing
 coverage/
+functions/process-capture/.env.deploy

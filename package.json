@@ -13,7 +13,10 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\"",
     "clean": "turbo clean && rm -rf node_modules",
     "retry:failed": "GOOGLE_APPLICATION_CREDENTIALS='.gcs/little-plains-key.json' npx tsx scripts/retry-failed.ts",
-    "status": "GOOGLE_APPLICATION_CREDENTIALS='.gcs/little-plains-key.json' npx tsx scripts/check-status.ts"
+    "status": "GOOGLE_APPLICATION_CREDENTIALS='.gcs/little-plains-key.json' npx tsx scripts/check-status.ts",
+    "backfill:slack": "npx tsx scripts/backfill-slack.ts",
+    "process:pending": "GOOGLE_APPLICATION_CREDENTIALS='.gcs/little-plains-key.json' npx tsx scripts/process-pending.ts",
+    "logs:function": "gcloud functions logs read little-plains-process --region us-central1 --limit 50"
   },
   "devDependencies": {
     "@google-cloud/pubsub": "^5.2.0",

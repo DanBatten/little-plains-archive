@@ -178,7 +178,8 @@ export async function POST(request: NextRequest) {
               const capture = await createCapture(
                 normalizedUrl,
                 sourceType,
-                messageWithoutUrls || undefined
+                messageWithoutUrls || undefined,
+                { userId: event.user, userName }
               );
 
               if (!capture) {
