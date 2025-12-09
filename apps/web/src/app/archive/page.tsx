@@ -189,14 +189,13 @@ export default function ArchivePage() {
     setHasMore(true);
   }, [selectedSourceType, selectedTopic, debouncedSearch]);
 
-  // Format date range for display
-  const formatDateRange = () => {
-    if (!latestItemDate || !oldestItemDate) return null;
-    const formatDate = (date: Date) => date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    const latest = formatDate(latestItemDate);
-    const oldest = formatDate(oldestItemDate);
-    if (latest === oldest) return latest;
-    return `${oldest} — ${latest}`;
+  // Format last updated date for display
+  const formatLastUpdated = () => {
+    if (!latestItemDate) return null;
+    const month = latestItemDate.getMonth() + 1;
+    const day = latestItemDate.getDate();
+    const year = latestItemDate.getFullYear().toString().slice(-2);
+    return `Last Updated ${month}/${day}/${year}`;
   };
 
   return (
@@ -348,19 +347,18 @@ export default function ArchivePage() {
 
       {/* Bottom Left - Item Count */}
       <div className="fixed bottom-4 left-4 z-40">
-        <div className="flex items-center gap-2 px-4 py-2 bg-white/30 backdrop-blur-xl border-2 border-white/50 rounded-full shadow-lg">
-          <span className="text-sm text-[var(--foreground-muted)]">–</span>
+        <div className="flex items-center gap-1.5 px-4 py-2 bg-white/30 backdrop-blur-xl border-2 border-white/50 rounded-full shadow-lg">
           <span className="text-sm text-[var(--foreground)]">{total}</span>
-          <span className="text-sm text-[var(--foreground-muted)]">+</span>
+          <span className="text-sm text-[var(--foreground-muted)]">posts</span>
         </div>
       </div>
 
-      {/* Bottom Right - Date Range */}
-      {formatDateRange() && (
+      {/* Bottom Right - Last Updated */}
+      {formatLastUpdated() && (
         <div className="fixed bottom-4 right-4 z-40">
           <div className="flex items-center px-4 py-2 bg-white/30 backdrop-blur-xl border-2 border-white/50 rounded-full shadow-lg">
             <span className="text-sm text-[var(--foreground)]">
-              {formatDateRange()}
+              {formatLastUpdated()}
             </span>
           </div>
         </div>
@@ -386,7 +384,7 @@ export default function ArchivePage() {
               >
                 {/* Source Types */}
                 <div className="mb-4">
-                  <p className="text-xs text-[var(--foreground-muted)] mb-2 uppercase tracking-wide">Source</p>
+                  <p className="text-xs text-[var(--foreground-muted)] mb-2 uppercase tracking-wide italic">Source</p>
                   <div className="flex flex-wrap gap-1.5">
                     {filters?.sourceTypes?.map((type, index) => (
                       <button
@@ -405,7 +403,7 @@ export default function ArchivePage() {
                 </div>
                 {/* Topics - stacked/wrapped */}
                 <div>
-                  <p className="text-xs text-[var(--foreground-muted)] mb-2 uppercase tracking-wide">Topics</p>
+                  <p className="text-xs text-[var(--foreground-muted)] mb-2 uppercase tracking-wide italic">Topics</p>
                   <div className="flex flex-wrap gap-1.5">
                     {filters?.topics?.slice(0, 12).map((topic, index) => (
                       <button

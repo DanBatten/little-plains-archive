@@ -52,11 +52,13 @@ function hasGcsUrl(image: { publicUrl?: string } | undefined): boolean {
 }
 
 // Check if image is large enough to display (exclude tiny icons/thumbnails)
-function isLargeEnough(image: { width?: number; height?: number } | undefined): boolean {
+function isLargeEnough(image: Record<string, unknown> | undefined): boolean {
   if (!image) return false;
+  const width = image.width as number | undefined;
+  const height = image.height as number | undefined;
   // If no dimensions, assume it's okay (we don't always have this data)
-  if (!image.width && !image.height) return true;
-  return (image.width || 0) >= MIN_IMAGE_SIZE || (image.height || 0) >= MIN_IMAGE_SIZE;
+  if (!width && !height) return true;
+  return (width || 0) >= MIN_IMAGE_SIZE || (height || 0) >= MIN_IMAGE_SIZE;
 }
 
 export function ContentCard({ item, size = 'medium', position = 'auto', onClick, index = 0 }: ContentCardProps) {
