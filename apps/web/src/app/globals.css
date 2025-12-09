@@ -1,5 +1,62 @@
 @import "tailwindcss";
 
+/* JJannon Display font family */
+@font-face {
+  font-family: 'JJannon Display';
+  src: url('/fonts/JJannon-Display-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JJannon Display';
+  src: url('/fonts/JJannon-Display-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JJannon Display';
+  src: url('/fonts/JJannon-Display-Italic.woff2') format('woff2');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JJannon Display';
+  src: url('/fonts/JJannon-Display-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JJannon Display';
+  src: url('/fonts/JJannon-Display-Bold-Italic.woff2') format('woff2');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JJannon Display';
+  src: url('/fonts/JJannon-Display-Extrabold.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JJannon Display';
+  src: url('/fonts/JJannon-Display-Extrabold-Italic.woff2') format('woff2');
+  font-weight: 800;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
   /* Clean gray palette */
   --background: #DADADA;
@@ -26,19 +83,19 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-crimson-pro), 'Crimson Pro', Georgia, serif;
+  font-family: 'JJannon Display', Georgia, serif;
 }
 
 /* Body font for UI */
 .font-mono-ui {
-  font-family: var(--font-crimson-pro), 'Crimson Pro', Georgia, serif;
+  font-family: 'JJannon Display', Georgia, serif;
   letter-spacing: 0;
 }
 
 /* Display font for headers */
 .font-pixel {
-  font-family: var(--font-crimson-pro), 'Crimson Pro', Georgia, serif;
-  font-weight: 600;
+  font-family: 'JJannon Display', Georgia, serif;
+  font-weight: 700;
 }
 
 /* Custom scrollbar - subtle */

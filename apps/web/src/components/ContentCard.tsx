@@ -39,6 +39,8 @@ export function getTopicColor(topic: string): string {
   return topicCardColors[Math.abs(hash) % topicCardColors.length];
 }
 
+const MIN_IMAGE_SIZE = 400;
+
 function getImageUrl(image: { url?: string; publicUrl?: string; originalUrl?: string } | undefined): string | null {
   if (!image) return null;
   return image.publicUrl || image.originalUrl || image.url || null;
@@ -47,6 +49,14 @@ function getImageUrl(image: { url?: string; publicUrl?: string; originalUrl?: st
 // Check if image has a reliable GCS URL (our storage, always works)
 function hasGcsUrl(image: { publicUrl?: string } | undefined): boolean {
   return !!image?.publicUrl?.includes('storage.googleapis.com');
+}
+
+// Check if image is large enough to display (exclude tiny icons/thumbnails)
+function isLargeEnough(image: { width?: number; height?: number } | undefined): boolean {
+  if (!image) return false;
+  // If no dimensions, assume it's okay (we don't always have this data)
+  if (!image.width && !image.height) return true;
+  return (image.width || 0) >= MIN_IMAGE_SIZE || (image.height || 0) >= MIN_IMAGE_SIZE;
 }
 
 export function ContentCard({ item, size = 'medium', position = 'auto', onClick, index = 0 }: ContentCardProps) {
@@ -72,15 +82,24 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
   };
 
   // For social posts: prefer images with GCS URLs (reliable), then video thumbnails, then any image
+  // Filter out small images (icons, thumbnails under 400px)
   const getSocialThumbnail = () => {
-    // First: check if we have an image stored in GCS (most reliable)
-    const gcsImage = item.images?.find(img => hasGcsUrl(img));
+    // First: check if we have a large image stored in GCS (most reliable)
+    const gcsImage = item.images?.find(img => hasGcsUrl(img) && isLargeEnough(img));
     if (gcsImage) return getImageUrl(gcsImage);
 
-    // Second: try video thumbnail (may be external CDN - less reliable)
+    // Second: any large GCS image
+    const anyGcsImage = item.images?.find(img => hasGcsUrl(img));
+    if (anyGcsImage) return getImageUrl(anyGcsImage);
+
+    // Third: try video thumbnail (may be external CDN - less reliable)
     if (hasVideo && item.videos?.[0]?.thumbnail) return item.videos[0].thumbnail;
 
-    // Third: any image we have
+    // Fourth: any large image we have
+    const largeImage = item.images?.find(img => isLargeEnough(img));
+    if (largeImage) return getImageUrl(largeImage);
+
+    // Last resort: any image
     if (hasImage) return getImageUrl(item.images?.[0]);
 
     return null;

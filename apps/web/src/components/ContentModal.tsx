@@ -214,9 +214,19 @@ function LinkShareCard({
   );
 }
 
+const MIN_IMAGE_SIZE = 400;
+
 function getImageUrl(image: { url?: string; publicUrl?: string; originalUrl?: string } | undefined): string | null {
   if (!image) return null;
   return image.publicUrl || image.originalUrl || image.url || null;
+}
+
+// Check if image is large enough to display (exclude tiny icons/thumbnails)
+function isLargeEnough(image: { width?: number; height?: number } | undefined): boolean {
+  if (!image) return false;
+  // If no dimensions, assume it's okay (we don't always have this data)
+  if (!image.width && !image.height) return true;
+  return (image.width || 0) >= MIN_IMAGE_SIZE || (image.height || 0) >= MIN_IMAGE_SIZE;
 }
 
 function TextWithLinks({ text }: { text: string }) {
@@ -405,22 +415,34 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
     return item.body_text.slice(0, RAW_CONTENT_CHAR_LIMIT) + '...';
   }, [item?.body_text, rawContentNeedsTruncation, isRawContentExpanded]);
 
-  // Get first GCS-hosted image to use as fallback poster for videos
+  // Get first large GCS-hosted image to use as fallback poster for videos
   const fallbackPoster = useMemo(() => {
     if (!item?.images) return null;
+    // Prefer large GCS images
+    const largeGcsImage = item.images.find(img =>
+      img.publicUrl?.includes('storage.googleapis.com') && isLargeEnough(img)
+    );
+    if (largeGcsImage) return getImageUrl(largeGcsImage);
+    // Fall back to any GCS image
     const gcsImage = item.images.find(img => img.publicUrl?.includes('storage.googleapis.com'));
-    return gcsImage ? getImageUrl(gcsImage) : getImageUrl(item.images[0]);
+    if (gcsImage) return getImageUrl(gcsImage);
+    // Fall back to any large image
+    const largeImage = item.images.find(img => isLargeEnough(img));
+    return largeImage ? getImageUrl(largeImage) : getImageUrl(item.images[0]);
   }, [item?.images]);
 
   // Collect all media (images first for reliable thumbnails, then videos)
+  // Filter out small images (under 400px)
   const allMedia = useMemo(() => {
     if (!item) return [];
     const media: Array<{ type: 'video' | 'image'; url: string; thumbnail?: string }> = [];
 
     // Images first - prefer GCS URLs as they're most reliable
+    // Filter out small images (icons, thumbnails)
     if (item.images && item.images.length > 0) {
-      // Sort to put GCS-hosted images first
-      const sortedImages = [...item.images].sort((a, b) => {
+      // Filter to large images only, then sort to put GCS-hosted images first
+      const largeImages = item.images.filter(img => isLargeEnough(img));
+      const sortedImages = [...largeImages].sort((a, b) => {
         const aHasGcs = a.publicUrl?.includes('storage.googleapis.com') ? 1 : 0;
         const bHasGcs = b.publicUrl?.includes('storage.googleapis.com') ? 1 : 0;
         return bHasGcs - aHasGcs;

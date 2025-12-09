@@ -212,14 +212,27 @@ export default function ArchivePage() {
         onClose={() => setIsSidebarOpen(false)}
       />
 
-      {/* Floating Search Bar at Top */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-md">
+      {/* Top Bar - Logo and Search */}
+      <div className="fixed top-[40px] z-40 flex items-center gap-4 px-4 sm:px-6 lg:px-8 left-0 right-0">
+        {/* Logo - matches search bar: py-1.5 (12px) + h-9 icon (36px) + border (4px) = 52px */}
+        <div className="flex-shrink-0 px-5 bg-white/30 backdrop-blur-xl border-2 border-white/50 rounded-full shadow-lg flex items-center justify-center h-[52px]">
+          <Image
+            src="/Logo.png"
+            alt="Little Plains Archive"
+            width={126}
+            height={22}
+            className="h-[22px] w-auto"
+          />
+        </div>
+
+        {/* Search Bar */}
         <div className={`
           flex items-center gap-3 pl-1.5 pr-4 py-1.5
           bg-white/30 backdrop-blur-xl
           border-2 border-white/50
           rounded-full shadow-lg
           transition-all duration-300
+          w-full max-w-md
           ${isSearchFocused ? 'shadow-xl bg-white/50' : ''}
         `}>
           {/* LP Icon */}
@@ -258,7 +271,7 @@ export default function ArchivePage() {
       </div>
 
       {/* Main content */}
-      <main className="w-full pt-24 px-4 sm:px-6 lg:px-8">
+      <main className="w-full pt-[152px] px-4 sm:px-6 lg:px-8">
         {/* Search results info with AI intent */}
         {!isLoading && debouncedSearch && (
           <div className="mb-6 text-center">
@@ -356,8 +369,8 @@ export default function ArchivePage() {
       {/* Bottom Center - Filter Bar */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40">
         <div
-          className="bg-white/30 backdrop-blur-xl border-2 border-white/50 shadow-lg transition-all duration-300 ease-out w-[500px] max-w-[calc(100vw-32px)]"
-          style={{ borderRadius: 25 }}
+          className="bg-white/30 backdrop-blur-xl border-2 border-white/50 shadow-lg transition-all duration-300 ease-out w-[640px] max-w-[calc(100vw-32px)]"
+          style={{ borderRadius: 28 }}
         >
           {/* Expanded content with grid animation */}
           <div
@@ -414,14 +427,14 @@ export default function ArchivePage() {
           </div>
 
           {/* Main filter row */}
-          <div className={`flex items-center justify-center gap-3 px-4 py-2.5 ${isFilterExpanded ? 'border-t border-gray-100' : ''}`}>
+          <div className={`flex items-center justify-center gap-2.5 px-4 py-2.5 ${isFilterExpanded ? 'border-t border-gray-100' : ''}`}>
             {/* All button */}
             <button
               onClick={() => {
                 setSelectedTopic(null);
                 setSelectedSourceType(null);
               }}
-              className={`px-3 py-1.5 text-sm rounded-full transition-colors ${
+              className={`px-3.5 py-1.5 text-sm rounded-full transition-colors ${
                 !hasActiveFilters
                   ? 'bg-[var(--foreground)] text-white'
                   : 'text-[var(--foreground)] hover:bg-gray-100'
@@ -431,17 +444,17 @@ export default function ArchivePage() {
             </button>
 
             {/* Quick topic filters */}
-            {filters?.topics?.slice(0, 4).map((topic, index) => (
+            {['Technology', 'Design', 'AI', 'Culture', 'Engineering'].map((topic, index) => (
               <button
-                key={`topic-${index}-${topic.name}`}
-                onClick={() => setSelectedTopic(selectedTopic === topic.name ? null : topic.name)}
-                className={`px-3 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap ${
-                  selectedTopic === topic.name
+                key={`topic-${index}-${topic}`}
+                onClick={() => setSelectedTopic(selectedTopic === topic ? null : topic)}
+                className={`px-3.5 py-1.5 text-sm rounded-full transition-colors whitespace-nowrap ${
+                  selectedTopic === topic
                     ? 'bg-[var(--foreground)] text-white'
-                    : `${getTopicColor(topic.name)} hover:opacity-80`
+                    : `${getTopicColor(topic)} hover:opacity-80`
                 }`}
               >
-                {topic.name}
+                {topic}
               </button>
             ))}
 
