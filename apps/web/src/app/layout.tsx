@@ -20,7 +20,7 @@ const siteUrl =
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: "Little Plains Archive — Inspiration from the team",
+  title: "Inspiration from the Little Plains team",
   description: "A curated collection of inspiration links shared by the team. Ideas, references, and things worth remembering.",
   icons: {
     icon: [
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     apple: [{ url: "/favicon.png", type: "image/png" }],
   },
   openGraph: {
-    title: "Little Plains Archive — Inspiration from the team",
+    title: "Inspiration from the Little Plains team",
     description: "A curated collection of inspiration links shared by the team. Ideas, references, and things worth remembering.",
     siteName: "Little Plains Archive",
     images: [
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Little Plains Archive - Inspiration from the team",
+        alt: "Inspiration from the Little Plains team",
       },
     ],
     locale: "en_US",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Little Plains Archive — Inspiration from the team",
+    title: "Inspiration from the Little Plains team",
     description: "A curated collection of inspiration links shared by the team. Ideas, references, and things worth remembering.",
     images: ["/og-image.png"],
   },
