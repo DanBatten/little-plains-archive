@@ -8,9 +8,21 @@ const crimsonPro = Crimson_Pro({
   variable: "--font-crimson-pro",
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "Little Plains Archive — Inspiration from the team",
   description: "A curated collection of inspiration links shared by the team. Ideas, references, and things worth remembering.",
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    apple: [{ url: "/favicon.png", type: "image/png" }],
+  },
   openGraph: {
     title: "Little Plains Archive — Inspiration from the team",
     description: "A curated collection of inspiration links shared by the team. Ideas, references, and things worth remembering.",
