@@ -8,9 +8,15 @@ const crimsonPro = Crimson_Pro({
   variable: "--font-crimson-pro",
 });
 
+const DEFAULT_PROD_SITE_URL = "https://inspo.littleplains.co";
+
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  (process.env.VERCEL_ENV === "production"
+    ? DEFAULT_PROD_SITE_URL
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000");
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
