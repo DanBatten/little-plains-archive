@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import type { ContentItem } from '@/types/content';
 
 interface ContentCardProps {
@@ -171,7 +172,7 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
       ? getTwitterThumbnail()
       : getSocialThumbnail();
 
-  const thumbnailCandidates = (() => {
+  const thumbnailCandidates = useMemo(() => {
     const list: string[] = [];
     if (item.source_type === 'web') {
       const screenshot = item.platform_data?.screenshot as string | undefined;
@@ -185,7 +186,21 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
       list.push(...imageCandidates);
     }
     return list;
-  })();
+  }, [item.source_type, item.platform_data, thumbnail, imageCandidates, fallbackImage]);
+
+  const debugEnabled = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).has('thumbDebug');
+  }, []);
+  const [debugState, setDebugState] = useState<{ currentSrc?: string; errorCount: number }>({
+    currentSrc: thumbnail || undefined,
+    errorCount: 0,
+  });
+
+  useEffect(() => {
+    if (!debugEnabled) return;
+    setDebugState((prev) => ({ ...prev, currentSrc: thumbnail || undefined }));
+  }, [debugEnabled, thumbnail]);
 
   // Size classes - uniform cards
   const getSizeClasses = () => {
@@ -222,6 +237,10 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
               src={thumbnail}
               alt={item.title || 'Content preview'}
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              onLoad={(event) => {
+                if (!debugEnabled) return;
+                setDebugState((prev) => ({ ...prev, currentSrc: event.currentTarget.currentSrc }));
+              }}
               onError={(event) => {
                 const target = event.currentTarget;
                 const currentIndex = parseInt(target.dataset.fallbackIndex || '0', 10);
@@ -229,16 +248,38 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
                 if (nextIndex < thumbnailCandidates.length) {
                   target.dataset.fallbackIndex = String(nextIndex);
                   target.src = thumbnailCandidates[nextIndex];
+                  if (debugEnabled) {
+                    setDebugState((prev) => ({
+                      currentSrc: thumbnailCandidates[nextIndex],
+                      errorCount: prev.errorCount + 1,
+                    }));
+                  }
                   return;
                 }
                 if (fallbackImage && !target.dataset.fallbackApplied) {
                   target.dataset.fallbackApplied = 'true';
                   target.src = fallbackImage;
+                  if (debugEnabled) {
+                    setDebugState((prev) => ({
+                      currentSrc: fallbackImage,
+                      errorCount: prev.errorCount + 1,
+                    }));
+                  }
                   return;
                 }
                 target.style.display = 'none';
+                if (debugEnabled) {
+                  setDebugState((prev) => ({ ...prev, errorCount: prev.errorCount + 1 }));
+                }
               }}
             />
+            {debugEnabled && (
+              <div className="absolute bottom-2 left-2 right-2 bg-black/70 text-white text-[10px] leading-snug p-2 rounded">
+                <div>src: {debugState.currentSrc || 'none'}</div>
+                <div>errors: {debugState.errorCount}</div>
+                <div>candidates: {thumbnailCandidates.length}</div>
+              </div>
+            )}
             {/* Subtle gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             
