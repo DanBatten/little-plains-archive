@@ -100,16 +100,26 @@ export class GenericScraper implements ContentScraper {
       const images: MediaItem[] = [];
       const seenUrls = new Set<string>();
 
-      // Add OG image first if present
-      if (ogImage && !seenUrls.has(ogImage)) {
-        images.push({ url: this.resolveUrl(ogImage, url) });
-        seenUrls.add(ogImage);
-      }
+      // Add OG/Twitter image candidates first if present
+      const metaImageCandidates = [
+        ogImage,
+        $('meta[property="og:image:url"]').attr('content'),
+        $('meta[property="og:image:secure_url"]').attr('content'),
+        $('meta[name="og:image"]').attr('content'),
+        $('meta[name="og:image:url"]').attr('content'),
+        $('meta[name="og:image:secure_url"]').attr('content'),
+        twitterImage,
+        $('meta[name="twitter:image:src"]').attr('content'),
+        $('link[rel="image_src"]').attr('href'),
+      ]
+        .filter((candidate): candidate is string => !!candidate)
+        .map((candidate) => this.resolveUrl(candidate, url));
 
-      // Add Twitter image if different
-      if (twitterImage && !seenUrls.has(twitterImage)) {
-        images.push({ url: this.resolveUrl(twitterImage, url) });
-        seenUrls.add(twitterImage);
+      for (const candidate of metaImageCandidates) {
+        if (!seenUrls.has(candidate)) {
+          images.push({ url: candidate });
+          seenUrls.add(candidate);
+        }
       }
 
       // Extract images from content
@@ -117,8 +127,11 @@ export class GenericScraper implements ContentScraper {
         if (images.length >= maxImages) return false;
 
         const src = $(el).attr('src');
-        const dataSrc = $(el).attr('data-src');
-        const imgUrl = src || dataSrc;
+        const dataSrc = $(el).attr('data-src') ||
+          $(el).attr('data-lazy-src') ||
+          $(el).attr('data-original');
+        const srcset = $(el).attr('srcset') || $(el).attr('data-srcset');
+        const imgUrl = src || dataSrc || this.parseSrcset(srcset);
 
         if (imgUrl && !seenUrls.has(imgUrl) && this.isValidImageUrl(imgUrl)) {
           const resolvedUrl = this.resolveUrl(imgUrl, url);
@@ -179,71 +192,110 @@ export class GenericScraper implements ContentScraper {
   private async takeScreenshot(url: string): Promise<string | undefined> {
     if (!this.apifyClient) return undefined;
 
-    try {
-      console.log(`Taking screenshot of ${url} via Apify...`);
+    const attempts = [
+      {
+        label: 'default',
+        input: {
+          urls: [{ url }],
+          viewportWidth: 1280,
+          viewportHeight: 800,
+          scrollToBottom: false,
+          delay: 2000,
+          waitUntil: 'networkidle2',
+        },
+        runOptions: {
+          timeout: 180,
+          memory: 1024,
+        },
+      },
+      {
+        label: 'lightweight',
+        input: {
+          urls: [{ url }],
+          viewportWidth: 1024,
+          viewportHeight: 640,
+          scrollToBottom: false,
+          delay: 1000,
+          waitUntil: 'domcontentloaded',
+        },
+        runOptions: {
+          timeout: 120,
+          memory: 512,
+        },
+      },
+    ];
 
-      // Use Apify's screenshot-url actor
-      // IMPORTANT: The actor expects 'urls' array, not 'url' string
-      const run = await this.apifyClient.actor('apify/screenshot-url').call({
-        urls: [{ url }],  // Must be array of objects with url property
-        viewportWidth: 1280,
-        viewportHeight: 800,
-        scrollToBottom: false,
-        delay: 2000, // Wait for page to load (renamed from delayMillis)
-        waitUntil: 'networkidle2',
-      }, {
-        timeout: 60, // 60 second timeout
-        memory: 1024,
-      });
-
-      // Get the screenshot from the default dataset
-      const { defaultDatasetId } = run;
-      if (defaultDatasetId) {
-        const dataset = this.apifyClient.dataset(defaultDatasetId);
-        const { items } = await dataset.listItems({ limit: 1 });
-        const firstItem = items[0] as Record<string, unknown> | undefined;
-
-        if (firstItem?.screenshotUrl) {
-          // The actor returns a URL to the screenshot
-          const screenshotUrl = firstItem.screenshotUrl as string;
+    for (const attempt of attempts) {
+      try {
+        console.log(`Taking screenshot of ${url} via Apify (${attempt.label})...`);
+        const screenshotUrl = await this.runScreenshot(url, attempt.input, attempt.runOptions);
+        if (screenshotUrl) {
           console.log('Screenshot captured successfully:', screenshotUrl);
           return screenshotUrl;
         }
+      } catch (err) {
+        console.warn(`Apify screenshot error (${attempt.label}):`, err);
       }
-
-      // Fallback: try key-value store
-      const { defaultKeyValueStoreId } = run;
-      const store = this.apifyClient.keyValueStore(defaultKeyValueStoreId);
-      const record = await store.getRecord('screenshot');
-
-      if (record && record.value) {
-        const value = record.value as unknown;
-        let base64: string;
-
-        if (Buffer.isBuffer(value)) {
-          base64 = value.toString('base64');
-        } else if (value instanceof ArrayBuffer) {
-          base64 = Buffer.from(value).toString('base64');
-        } else if (typeof value === 'string') {
-          if (value.startsWith('data:') || value.startsWith('http')) {
-            return value;
-          }
-          base64 = value;
-        } else {
-          console.warn('Unexpected screenshot value type:', typeof value);
-          return undefined;
-        }
-
-        console.log('Screenshot captured successfully from KV store');
-        return `data:image/png;base64,${base64}`;
-      }
-
-      console.warn('No screenshot found in Apify output');
-      return undefined;
-    } catch (err) {
-      console.error('Apify screenshot error:', err);
-      return undefined;
     }
+
+    console.warn('No screenshot found in Apify output');
+    return undefined;
+  }
+
+  private async runScreenshot(
+    url: string,
+    input: {
+      urls: Array<{ url: string }>;
+      viewportWidth: number;
+      viewportHeight: number;
+      scrollToBottom: boolean;
+      delay: number;
+      waitUntil: string;
+    },
+    runOptions: {
+      timeout: number;
+      memory: number;
+    }
+  ): Promise<string | undefined> {
+    const run = await this.apifyClient!.actor('apify/screenshot-url').call(input, runOptions);
+
+    const { defaultDatasetId } = run;
+    if (defaultDatasetId) {
+      const dataset = this.apifyClient!.dataset(defaultDatasetId);
+      const { items } = await dataset.listItems({ limit: 1 });
+      const firstItem = items[0] as Record<string, unknown> | undefined;
+
+      if (firstItem?.screenshotUrl) {
+        return firstItem.screenshotUrl as string;
+      }
+    }
+
+    const { defaultKeyValueStoreId } = run;
+    const store = this.apifyClient!.keyValueStore(defaultKeyValueStoreId);
+    const record = await store.getRecord('screenshot');
+
+    if (record && record.value) {
+      const value = record.value as unknown;
+      let base64: string;
+
+      if (Buffer.isBuffer(value)) {
+        base64 = value.toString('base64');
+      } else if (value instanceof ArrayBuffer) {
+        base64 = Buffer.from(value).toString('base64');
+      } else if (typeof value === 'string') {
+        if (value.startsWith('data:') || value.startsWith('http')) {
+          return value;
+        }
+        base64 = value;
+      } else {
+        console.warn('Unexpected screenshot value type:', typeof value);
+        return undefined;
+      }
+
+      return `data:image/png;base64,${base64}`;
+    }
+
+    return undefined;
   }
 
   private resolveUrl(urlStr: string, baseUrl: string): string {
@@ -252,6 +304,38 @@ export class GenericScraper implements ContentScraper {
     } catch {
       return urlStr;
     }
+  }
+
+  private parseSrcset(srcset?: string | null): string | undefined {
+    if (!srcset) return undefined;
+    const candidates = srcset
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    let bestUrl: string | undefined;
+    let bestScore = 0;
+
+    for (const candidate of candidates) {
+      const [candidateUrl, descriptor] = candidate.split(/\s+/);
+      if (!candidateUrl) continue;
+
+      let score = 1;
+      if (descriptor?.endsWith('w')) {
+        const width = parseInt(descriptor.replace('w', ''), 10);
+        if (!Number.isNaN(width)) score = width;
+      } else if (descriptor?.endsWith('x')) {
+        const density = parseFloat(descriptor.replace('x', ''));
+        if (!Number.isNaN(density)) score = density * 1000;
+      }
+
+      if (score >= bestScore) {
+        bestScore = score;
+        bestUrl = candidateUrl;
+      }
+    }
+
+    return bestUrl;
   }
 
   private isValidImageUrl(url: string): boolean {

@@ -54,14 +54,28 @@ function extractUrls(text: string): string[] {
   return matches;
 }
 
+// Common tracking parameters to strip for deduplication
+const TRACKING_PARAMS = [
+  'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+  'igsh', 'igshid', 'ig_rid',  // Instagram
+  's', 't',                     // Twitter/X
+  'ref', 'ref_src', 'ref_url', // Various referrer params
+  'fbclid', 'gclid', 'gclsrc', // Facebook/Google ads
+  'mc_cid', 'mc_eid',          // Mailchimp
+  '_ga', '_gl',                // Google Analytics
+];
+
 // Normalize URL for deduplication
 function normalizeUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    // Remove trailing slashes, lowercase hostname
+    // Strip tracking parameters
+    TRACKING_PARAMS.forEach(param => parsed.searchParams.delete(param));
+    // Lowercase hostname
     parsed.hostname = parsed.hostname.toLowerCase();
+    // Remove trailing slash (except for root)
     let normalized = parsed.toString();
-    if (normalized.endsWith('/')) {
+    if (normalized.endsWith('/') && parsed.pathname !== '/') {
       normalized = normalized.slice(0, -1);
     }
     return normalized;
@@ -113,7 +127,7 @@ async function getUserInfo(userId: string): Promise<{ name?: string; realName?: 
 }
 
 // Fetch channel history from Slack
-async function fetchChannelHistory(channelId: string, cursor?: string): Promise<{
+async function fetchChannelHistory(channelId: string, oldest?: string, cursor?: string): Promise<{
   messages: any[];
   nextCursor?: string;
 }> {
@@ -121,6 +135,10 @@ async function fetchChannelHistory(channelId: string, cursor?: string): Promise<
     channel: channelId,
     limit: '200',
   });
+
+  if (oldest) {
+    params.set('oldest', oldest);
+  }
 
   if (cursor) {
     params.set('cursor', cursor);
@@ -194,7 +212,12 @@ async function insertCapture(capture: {
 
 // Main backfill function
 async function backfill() {
+  // Default to last 24 hours, or use BACKFILL_HOURS env var
+  const hoursBack = parseInt(process.env.BACKFILL_HOURS || '24', 10);
+  const oldestTimestamp = String(Math.floor((Date.now() - hoursBack * 60 * 60 * 1000) / 1000));
+
   console.log(`Starting backfill for channel: ${CHANNEL_ID}`);
+  console.log(`Looking back ${hoursBack} hours (since ${new Date(parseInt(oldestTimestamp) * 1000).toISOString()})`);
 
   let cursor: string | undefined;
   let totalMessages = 0;
@@ -209,7 +232,7 @@ async function backfill() {
   do {
     console.log(`Fetching messages... (cursor: ${cursor || 'start'})`);
 
-    const { messages, nextCursor } = await fetchChannelHistory(CHANNEL_ID!, cursor);
+    const { messages, nextCursor } = await fetchChannelHistory(CHANNEL_ID!, oldestTimestamp, cursor);
     cursor = nextCursor;
 
     totalMessages += messages.length;

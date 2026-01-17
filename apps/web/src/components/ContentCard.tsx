@@ -46,6 +46,12 @@ function getImageUrl(image: { url?: string; publicUrl?: string; originalUrl?: st
   return image.publicUrl || image.originalUrl || image.url || null;
 }
 
+function isReliableScreenshot(url: string | undefined): boolean {
+  if (!url) return false;
+  if (url.startsWith('data:')) return true;
+  return url.includes('storage.googleapis.com');
+}
+
 // Check if image has a reliable GCS URL (our storage, always works)
 function hasGcsUrl(image: { publicUrl?: string } | undefined): boolean {
   return !!image?.publicUrl?.includes('storage.googleapis.com');
@@ -61,19 +67,44 @@ function isLargeEnough(image: Record<string, unknown> | undefined): boolean {
   return (width || 0) >= MIN_IMAGE_SIZE || (height || 0) >= MIN_IMAGE_SIZE;
 }
 
+function getBestImage(
+  images: Array<{ publicUrl?: string; originalUrl?: string; url?: string; width?: number; height?: number }> | null | undefined
+): string | null {
+  if (!images || images.length === 0) return null;
+
+  // Prefer large GCS images first
+  const largeGcsImage = images.find((img) => hasGcsUrl(img) && isLargeEnough(img));
+  if (largeGcsImage) return getImageUrl(largeGcsImage);
+
+  // Any GCS image
+  const anyGcsImage = images.find((img) => hasGcsUrl(img));
+  if (anyGcsImage) return getImageUrl(anyGcsImage);
+
+  // Any large image
+  const largeImage = images.find((img) => isLargeEnough(img));
+  if (largeImage) return getImageUrl(largeImage);
+
+  // Fallback to first image
+  return getImageUrl(images[0]);
+}
+
 export function ContentCard({ item, size = 'medium', position = 'auto', onClick, index = 0 }: ContentCardProps) {
   const hasImage = item.images && item.images.length > 0;
   const hasVideo = item.videos && item.videos.length > 0;
   const imageCount = item.images?.length || 0;
   const hasMultipleImages = imageCount > 1;
+  const bestImage = getBestImage(item.images);
+  const fallbackImage = item.source_type === 'twitter'
+    ? '/twitter-fallback.png'
+    : bestImage;
 
   // For web items, prefer screenshot, then OG image
   // For social items, prefer video thumbnail, then images
   // For Twitter without images, use fallback
   const getWebThumbnail = () => {
     const screenshot = item.platform_data?.screenshot as string | undefined;
-    if (screenshot) return screenshot;
-    if (hasImage) return getImageUrl(item.images?.[0]);
+    if (isReliableScreenshot(screenshot)) return screenshot;
+    if (hasImage) return bestImage;
     return null;
   };
 
@@ -148,6 +179,13 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
               src={thumbnail}
               alt={item.title || 'Content preview'}
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              onError={(event) => {
+                if (!fallbackImage) return;
+                const target = event.currentTarget;
+                if (target.dataset.fallbackApplied === 'true') return;
+                target.dataset.fallbackApplied = 'true';
+                target.src = fallbackImage;
+              }}
             />
             {/* Subtle gradient overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

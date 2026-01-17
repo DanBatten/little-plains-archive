@@ -583,9 +583,11 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
                     title={item.title}
                     description={item.description}
                     screenshot={
-                      // Use screenshot if available, otherwise fall back to first OG image
-                      (item.platform_data?.screenshot as string | undefined) ||
-                      (item.images?.[0]?.publicUrl || item.images?.[0]?.originalUrl || item.images?.[0]?.url)
+                      // Use screenshot only if it's reliable; otherwise fall back to best available image
+                      ((item.platform_data?.screenshot as string | undefined)?.startsWith('data:') ||
+                      (item.platform_data?.screenshot as string | undefined)?.includes('storage.googleapis.com'))
+                        ? (item.platform_data?.screenshot as string | undefined)
+                        : fallbackPoster || (item.images?.[0]?.publicUrl || item.images?.[0]?.originalUrl || item.images?.[0]?.url)
                     }
                   />
                 </div>

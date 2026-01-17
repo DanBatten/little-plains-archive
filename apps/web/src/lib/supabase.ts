@@ -82,6 +82,15 @@ export interface ContentItemRow {
   updated_at: string;
 }
 
+export interface SlackContext {
+  messageTs?: string;
+  channelId?: string;
+  userId?: string;
+  userName?: string;
+  contextText?: string;
+  teamId?: string;
+}
+
 /**
  * Create a new capture record
  */
@@ -89,7 +98,7 @@ export async function createCapture(
   url: string,
   sourceType: SourceType,
   notes?: string,
-  slackUser?: { userId?: string; userName?: string }
+  slackContext?: SlackContext
 ): Promise<{ id: string } | null> {
   const { data, error } = await getSupabaseAdmin()
     .from('content_items')
@@ -104,8 +113,12 @@ export async function createCapture(
       disciplines: [],
       use_cases: [],
       platform_data: notes ? { user_notes: notes } : null,
-      slack_user_id: slackUser?.userId || null,
-      slack_user_name: slackUser?.userName || null,
+      slack_message_ts: slackContext?.messageTs || null,
+      slack_channel_id: slackContext?.channelId || null,
+      slack_user_id: slackContext?.userId || null,
+      slack_user_name: slackContext?.userName || null,
+      slack_context_text: slackContext?.contextText || null,
+      slack_team_id: slackContext?.teamId || null,
     })
     .select('id')
     .single();

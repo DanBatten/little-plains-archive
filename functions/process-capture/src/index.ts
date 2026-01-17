@@ -215,8 +215,8 @@ async function processMedia(
       console.log(`Screenshot saved: ${screenshotUrl}`);
     } catch (err) {
       console.warn('Failed to process screenshot:', err);
-      // Keep the original URL as fallback if it's a direct URL
-      if (content.screenshot.startsWith('http')) {
+      // Keep the original URL only if it's not an Apify signed URL (often expires)
+      if (content.screenshot.startsWith('http') && !content.screenshot.includes('apify.com')) {
         screenshotUrl = content.screenshot;
       }
     }

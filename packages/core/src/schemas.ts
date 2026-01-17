@@ -56,8 +56,19 @@ export function detectSourceType(url: string): z.infer<typeof sourceTypeSchema> 
   return 'web';
 }
 
+// Common tracking parameters to strip for deduplication
+const TRACKING_PARAMS = [
+  'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+  'igsh', 'igshid', 'ig_rid',  // Instagram
+  's', 't',                     // Twitter/X
+  'ref', 'ref_src', 'ref_url', // Various referrer params
+  'fbclid', 'gclid', 'gclsrc', // Facebook/Google ads
+  'mc_cid', 'mc_eid',          // Mailchimp
+  '_ga', '_gl',                // Google Analytics
+];
+
 /**
- * Validate and parse a URL
+ * Validate and parse a URL, stripping tracking parameters
  */
 export function validateUrl(url: string): { valid: boolean; normalized?: string; error?: string } {
   try {
@@ -68,8 +79,17 @@ export function validateUrl(url: string): { valid: boolean; normalized?: string;
       return { valid: false, error: 'Only HTTP and HTTPS URLs are supported' };
     }
 
-    // Normalize the URL
-    const normalized = parsed.href;
+    // Strip tracking parameters
+    TRACKING_PARAMS.forEach(param => parsed.searchParams.delete(param));
+
+    // Normalize hostname to lowercase
+    parsed.hostname = parsed.hostname.toLowerCase();
+
+    // Get normalized URL and remove trailing slash (except for root)
+    let normalized = parsed.href;
+    if (normalized.endsWith('/') && parsed.pathname !== '/') {
+      normalized = normalized.slice(0, -1);
+    }
 
     return { valid: true, normalized };
   } catch {

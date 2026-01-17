@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { ApifyClient } from 'apify-client';
+import { Storage } from '@google-cloud/storage';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
@@ -14,38 +15,95 @@ const apifyClient = new ApifyClient({
   token: process.env.APIFY_API_TOKEN!,
 });
 
-async function takeScreenshot(url: string): Promise<string | undefined> {
+const storage = new Storage();
+const bucketName = process.env.GCS_BUCKET_NAME || 'little-plains-media';
+
+async function uploadScreenshotFromUrl(id: string, screenshotUrl: string): Promise<string | undefined> {
   try {
-    console.log(`  Taking screenshot of ${url}...`);
-
-    const run = await apifyClient.actor('apify/screenshot-url').call({
-      urls: [{ url }],
-      viewportWidth: 1280,
-      viewportHeight: 800,
-      scrollToBottom: false,
-      delay: 2000,
-      waitUntil: 'networkidle2',
-    }, {
-      timeout: 60,
-      memory: 1024,
-    });
-
-    const { defaultDatasetId } = run;
-    if (defaultDatasetId) {
-      const dataset = apifyClient.dataset(defaultDatasetId);
-      const { items } = await dataset.listItems({ limit: 1 });
-      const firstItem = items[0] as Record<string, unknown> | undefined;
-
-      if (firstItem?.screenshotUrl) {
-        return firstItem.screenshotUrl as string;
-      }
+    if (screenshotUrl.startsWith('data:')) {
+      const base64Data = screenshotUrl.split(',')[1];
+      const buffer = Buffer.from(base64Data, 'base64');
+      const file = storage.bucket(bucketName).file(`captures/${id}/screenshot.jpg`);
+      await file.save(buffer, { metadata: { contentType: 'image/jpeg' } });
+      return `https://storage.googleapis.com/${bucketName}/captures/${id}/screenshot.jpg`;
     }
 
-    return undefined;
+    const response = await fetch(screenshotUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download screenshot: ${response.status}`);
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const file = storage.bucket(bucketName).file(`captures/${id}/screenshot.jpg`);
+    await file.save(buffer, {
+      metadata: { contentType: response.headers.get('content-type') || 'image/jpeg' },
+    });
+
+    return `https://storage.googleapis.com/${bucketName}/captures/${id}/screenshot.jpg`;
   } catch (err) {
-    console.error(`  Screenshot error:`, err);
+    console.warn('  Failed to upload screenshot to GCS:', err);
     return undefined;
   }
+}
+
+async function takeScreenshot(url: string): Promise<string | undefined> {
+  const attempts = [
+    {
+      label: 'default',
+      input: {
+        urls: [{ url }],
+        viewportWidth: 1280,
+        viewportHeight: 800,
+        scrollToBottom: false,
+        delay: 2000,
+        waitUntil: 'networkidle2',
+      },
+      runOptions: {
+        timeout: 180,
+        memory: 1024,
+      },
+    },
+    {
+      label: 'lightweight',
+      input: {
+        urls: [{ url }],
+        viewportWidth: 1024,
+        viewportHeight: 640,
+        scrollToBottom: false,
+        delay: 1000,
+        waitUntil: 'domcontentloaded',
+      },
+      runOptions: {
+        timeout: 120,
+        memory: 512,
+      },
+    },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      console.log(`  Taking screenshot (${attempt.label}) of ${url}...`);
+      const run = await apifyClient.actor('apify/screenshot-url').call(
+        attempt.input,
+        attempt.runOptions
+      );
+
+      const { defaultDatasetId } = run;
+      if (defaultDatasetId) {
+        const dataset = apifyClient.dataset(defaultDatasetId);
+        const { items } = await dataset.listItems({ limit: 1 });
+        const firstItem = items[0] as Record<string, unknown> | undefined;
+
+        if (firstItem?.screenshotUrl) {
+          return firstItem.screenshotUrl as string;
+        }
+      }
+    } catch (err) {
+      console.warn(`  Screenshot error (${attempt.label}):`, err);
+    }
+  }
+
+  return undefined;
 }
 
 async function backfillScreenshots() {
@@ -62,10 +120,19 @@ async function backfillScreenshots() {
     return;
   }
 
-  // Filter to items without screenshots
+  const includeApify = process.env.INCLUDE_APIFY === '1';
+  const onlyApify = process.env.ONLY_APIFY === '1';
+
+  // Filter to items without screenshots (or with Apify screenshots if requested)
   const itemsWithoutScreenshots = data.filter(item => {
     const platformData = item.platform_data as Record<string, unknown> | null;
-    return !platformData?.screenshot;
+    const screenshot = platformData?.screenshot as string | undefined;
+    const hasScreenshot = !!screenshot;
+    const hasApifyScreenshot = screenshot?.includes('apify.com');
+
+    if (onlyApify) return !!hasApifyScreenshot;
+    if (includeApify) return !hasScreenshot || !!hasApifyScreenshot;
+    return !hasScreenshot;
   });
 
   console.log(`Found ${itemsWithoutScreenshots.length} web items without screenshots\n`);
@@ -86,17 +153,30 @@ async function backfillScreenshots() {
   for (const item of itemsToProcess) {
     console.log(`\n[${success + failed + 1}/${itemsWithoutScreenshots.length}] ${item.title || item.source_url}`);
 
-    const screenshotUrl = await takeScreenshot(item.source_url);
+    const platformData = (item.platform_data as Record<string, unknown>) || {};
+    const existingScreenshot = platformData.screenshot as string | undefined;
+    const hasApifyScreenshot = !!existingScreenshot?.includes('apify.com');
+
+    let screenshotUrl: string | undefined;
+    if (hasApifyScreenshot) {
+      console.log('  Attempting to reupload existing Apify screenshot to GCS...');
+      screenshotUrl = await uploadScreenshotFromUrl(item.id, existingScreenshot!);
+    }
+
+    if (!screenshotUrl) {
+      screenshotUrl = await takeScreenshot(item.source_url);
+    }
 
     if (screenshotUrl) {
+      const gcsScreenshotUrl = await uploadScreenshotFromUrl(item.id, screenshotUrl) || screenshotUrl;
+
       // Update the item with the screenshot
-      const platformData = (item.platform_data as Record<string, unknown>) || {};
       const { error: updateError } = await supabase
         .from('content_items')
         .update({
           platform_data: {
             ...platformData,
-            screenshot: screenshotUrl,
+            screenshot: gcsScreenshotUrl,
           },
         })
         .eq('id', item.id);

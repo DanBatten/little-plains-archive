@@ -87,15 +87,18 @@ export async function POST(request: NextRequest) {
     const rawBody = await request.text();
     const body = JSON.parse(rawBody);
 
+    console.log('[Slack] Received event:', body.type, body.event?.type || '');
+
     // Handle URL verification challenge (initial setup)
     if (body.type === 'url_verification') {
+      console.log('[Slack] URL verification challenge received');
       return NextResponse.json({ challenge: body.challenge });
     }
 
     // Verify Slack signature
     const signingSecret = process.env.SLACK_SIGNING_SECRET;
     if (!signingSecret) {
-      console.error('SLACK_SIGNING_SECRET not configured');
+      console.error('[Slack] SLACK_SIGNING_SECRET not configured');
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
@@ -103,13 +106,23 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('x-slack-signature') || '';
 
     if (!verifySlackSignature(signingSecret, timestamp, rawBody, signature)) {
-      console.error('Invalid Slack signature');
+      console.error('[Slack] Invalid signature - check SLACK_SIGNING_SECRET env var');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
+
+    console.log('[Slack] Signature verified successfully');
 
     // Handle event callbacks
     if (body.type === 'event_callback') {
       const event = body.event;
+
+      console.log('[Slack] Event details:', {
+        type: event.type,
+        subtype: event.subtype,
+        channel: event.channel,
+        hasText: !!event.text,
+        isBotMessage: !!event.bot_id,
+      });
 
       // Only process messages (not bot messages, not edits)
       if (
@@ -120,12 +133,14 @@ export async function POST(request: NextRequest) {
       ) {
         // Check if this channel is allowed
         if (!isAllowedChannel(event.channel)) {
-          console.log(`Ignoring message from non-allowed channel: ${event.channel}`);
+          const allowedChannels = process.env.SLACK_ALLOWED_CHANNELS || '(not set)';
+          console.log(`[Slack] Ignoring message from channel ${event.channel}. Allowed: ${allowedChannels}`);
           return NextResponse.json({ ok: true });
         }
 
         // Extract URLs from the message
         const urls = extractUrls(event.text);
+        console.log(`[Slack] Found ${urls.length} URLs in message`);
 
         if (urls.length === 0) {
           // No URLs in message, ignore
@@ -179,7 +194,14 @@ export async function POST(request: NextRequest) {
                 normalizedUrl,
                 sourceType,
                 messageWithoutUrls || undefined,
-                { userId: event.user, userName }
+                {
+                  messageTs: event.ts,
+                  channelId: event.channel,
+                  userId: event.user,
+                  userName,
+                  contextText: messageWithoutUrls || undefined,
+                  teamId: body.team_id,
+                }
               );
 
               if (!capture) {
@@ -220,7 +242,7 @@ export async function POST(request: NextRequest) {
     // Unknown event type
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error('Slack event error:', error);
+    console.error('[Slack] Unexpected error processing event:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
