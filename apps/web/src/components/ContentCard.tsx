@@ -88,15 +88,42 @@ function getBestImage(
   return getImageUrl(images[0]);
 }
 
+function getImageCandidates(
+  images: Array<{ publicUrl?: string; originalUrl?: string; url?: string; width?: number; height?: number }> | null | undefined
+): string[] {
+  if (!images || images.length === 0) return [];
+
+  const candidates: string[] = [];
+  const addUnique = (imageList: typeof images) => {
+    if (!imageList) return;
+    imageList.forEach((img) => {
+      const url = getImageUrl(img);
+      if (url && !candidates.includes(url)) {
+        candidates.push(url);
+      }
+    });
+  };
+
+  const largeGcs = images.filter((img) => hasGcsUrl(img) && isLargeEnough(img));
+  const anyGcs = images.filter((img) => hasGcsUrl(img));
+  const large = images.filter((img) => isLargeEnough(img));
+
+  addUnique(largeGcs);
+  addUnique(anyGcs);
+  addUnique(large);
+  addUnique(images);
+
+  return candidates;
+}
+
 export function ContentCard({ item, size = 'medium', position = 'auto', onClick, index = 0 }: ContentCardProps) {
   const hasImage = item.images && item.images.length > 0;
   const hasVideo = item.videos && item.videos.length > 0;
   const imageCount = item.images?.length || 0;
   const hasMultipleImages = imageCount > 1;
   const bestImage = getBestImage(item.images);
-  const fallbackImage = item.source_type === 'twitter'
-    ? '/twitter-fallback.png'
-    : bestImage;
+  const imageCandidates = getImageCandidates(item.images);
+  const fallbackImage = item.source_type === 'twitter' ? '/twitter-fallback.png' : bestImage;
 
   // For web items, prefer screenshot, then OG image
   // For social items, prefer video thumbnail, then images
@@ -144,6 +171,22 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
       ? getTwitterThumbnail()
       : getSocialThumbnail();
 
+  const thumbnailCandidates = (() => {
+    const list: string[] = [];
+    if (item.source_type === 'web') {
+      const screenshot = item.platform_data?.screenshot as string | undefined;
+      if (isReliableScreenshot(screenshot) && screenshot) list.push(screenshot);
+      list.push(...imageCandidates);
+    } else if (item.source_type === 'twitter') {
+      if (thumbnail) list.push(thumbnail);
+      if (fallbackImage && !list.includes(fallbackImage)) list.push(fallbackImage);
+    } else {
+      if (thumbnail) list.push(thumbnail);
+      list.push(...imageCandidates);
+    }
+    return list;
+  })();
+
   // Size classes - uniform cards
   const getSizeClasses = () => {
     return 'col-span-1 row-span-1';
@@ -180,11 +223,20 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
               alt={item.title || 'Content preview'}
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               onError={(event) => {
-                if (!fallbackImage) return;
                 const target = event.currentTarget;
-                if (target.dataset.fallbackApplied === 'true') return;
-                target.dataset.fallbackApplied = 'true';
-                target.src = fallbackImage;
+                const currentIndex = parseInt(target.dataset.fallbackIndex || '0', 10);
+                const nextIndex = currentIndex + 1;
+                if (nextIndex < thumbnailCandidates.length) {
+                  target.dataset.fallbackIndex = String(nextIndex);
+                  target.src = thumbnailCandidates[nextIndex];
+                  return;
+                }
+                if (fallbackImage && !target.dataset.fallbackApplied) {
+                  target.dataset.fallbackApplied = 'true';
+                  target.src = fallbackImage;
+                  return;
+                }
+                target.style.display = 'none';
               }}
             />
             {/* Subtle gradient overlay */}
