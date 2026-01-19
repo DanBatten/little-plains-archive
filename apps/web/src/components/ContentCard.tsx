@@ -190,7 +190,13 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
 
   const debugEnabled = useMemo(() => {
     if (typeof window === 'undefined') return false;
-    return new URLSearchParams(window.location.search).has('thumbDebug');
+    if (new URLSearchParams(window.location.search).has('thumbDebug')) return true;
+    if (window.location.hash.includes('thumbDebug')) return true;
+    try {
+      return window.localStorage.getItem('thumbDebug') === '1';
+    } catch {
+      return false;
+    }
   }, []);
   const [debugState, setDebugState] = useState<{ currentSrc?: string; errorCount: number }>({
     currentSrc: thumbnail || undefined,
