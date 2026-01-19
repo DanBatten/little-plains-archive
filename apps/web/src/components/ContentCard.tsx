@@ -131,8 +131,8 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
   // For Twitter without images, use fallback
   const getWebThumbnail = () => {
     const screenshot = item.platform_data?.screenshot as string | undefined;
-    if (isReliableScreenshot(screenshot)) return screenshot;
     if (hasImage) return bestImage;
+    if (isReliableScreenshot(screenshot)) return screenshot;
     return null;
   };
 
@@ -176,8 +176,8 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
     const list: string[] = [];
     if (item.source_type === 'web') {
       const screenshot = item.platform_data?.screenshot as string | undefined;
-      if (isReliableScreenshot(screenshot) && screenshot) list.push(screenshot);
       list.push(...imageCandidates);
+      if (isReliableScreenshot(screenshot) && screenshot) list.push(screenshot);
     } else if (item.source_type === 'twitter') {
       if (thumbnail) list.push(thumbnail);
       if (fallbackImage && !list.includes(fallbackImage)) list.push(fallbackImage);
