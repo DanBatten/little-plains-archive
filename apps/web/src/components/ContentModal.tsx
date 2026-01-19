@@ -478,7 +478,7 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
   if (!item) return null;
 
   const hasMedia = allMedia.length > 0;
-  const isSocialWithoutMedia = ['twitter', 'instagram'].includes(item.source_type) && !hasMedia;
+  const isSocialWithoutMedia = ['twitter', 'instagram', 'youtube'].includes(item.source_type) && !hasMedia;
   
   // Extract tweet ID from URL for embedding
   const getTweetId = (url: string): string | null => {
@@ -495,11 +495,30 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
     }
     return null;
   };
+
+  const getYouTubeEmbedUrl = (url: string): string | null => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname.includes('youtu.be')) {
+        const id = parsed.pathname.replace('/', '');
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
+      if (parsed.pathname.startsWith('/shorts/')) {
+        const id = parsed.pathname.split('/')[2];
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
+      const id = parsed.searchParams.get('v');
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    } catch {
+      return null;
+    }
+  };
   
   const tweetId = item.source_type === 'twitter' ? getTweetId(item.source_url) : null;
   const instagramEmbedUrl = item.source_type === 'instagram' ? getInstagramEmbedUrl(item.source_url) : null;
+  const youTubeEmbedUrl = item.source_type === 'youtube' ? getYouTubeEmbedUrl(item.source_url) : null;
   
-  const hasEmbed = tweetId || instagramEmbedUrl;
+  const hasEmbed = tweetId || instagramEmbedUrl || youTubeEmbedUrl;
 
   return (
     <div className="fixed inset-0 z-40">
@@ -517,10 +536,11 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
           <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-4 border-b border-[var(--panel-border)]">
             <div className="flex items-center gap-3">
               <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium ${sourceColors[item.source_type] || 'bg-[var(--accent)]'}`}>
-                {item.source_type === 'twitter' ? '𝕏' :
-                 item.source_type === 'instagram' ? 'IG' :
-                 item.source_type === 'linkedin' ? 'in' :
-                 item.source_type === 'pinterest' ? 'P' : '◎'}
+            {item.source_type === 'twitter' ? '𝕏' :
+             item.source_type === 'instagram' ? 'IG' :
+             item.source_type === 'linkedin' ? 'in' :
+             item.source_type === 'pinterest' ? 'P' :
+             item.source_type === 'youtube' ? '▶' : '◎'}
               </span>
               {(item.author_name || item.author_handle) && (
                 <div>
@@ -707,6 +727,19 @@ export function ContentModal({ item, onClose }: ContentModalProps) {
                     <iframe
                       src={instagramEmbedUrl}
                       className="w-full min-h-[500px] border-0"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
+              )}
+              {item.source_type === 'youtube' && youTubeEmbedUrl && (
+                <div className="mb-6 sm:mb-8">
+                  <h3 className="font-mono-ui text-xs uppercase tracking-widest text-[var(--foreground-muted)] mb-3">Original Video</h3>
+                  <div className="rounded-xl overflow-hidden bg-white">
+                    <iframe
+                      src={youTubeEmbedUrl}
+                      className="w-full min-h-[360px] border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
                     />
                   </div>

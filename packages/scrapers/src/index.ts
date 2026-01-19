@@ -3,11 +3,13 @@ import type { ContentScraper } from './types';
 import { GenericScraper } from './generic';
 import { TwitterScraper } from './twitter';
 import { InstagramScraper } from './instagram';
+import { YouTubeScraper } from './youtube';
 
 export * from './types';
 export { GenericScraper } from './generic';
 export { TwitterScraper } from './twitter';
 export { InstagramScraper } from './instagram';
+export { YouTubeScraper } from './youtube';
 
 /**
  * Scraper registry - manages all available scrapers
@@ -52,6 +54,12 @@ export function createScraperRegistry(): ScraperRegistry {
   
   const registry = new ScraperRegistry(apifyToken);
 
+  try {
+    registry.register(new YouTubeScraper());
+  } catch (e) {
+    console.warn('Failed to initialize YouTube scraper:', e);
+  }
+
   if (apifyToken) {
     console.log('Apify configured - screenshots and social scrapers enabled');
     
@@ -88,6 +96,8 @@ export function getScraperForSourceType(
       return reg.getByName('twitter') || reg.getByName('generic')!;
     case 'instagram':
       return reg.getByName('instagram') || reg.getByName('generic')!;
+    case 'youtube':
+      return reg.getByName('youtube') || reg.getByName('generic')!;
     case 'linkedin':
     case 'pinterest':
     case 'web':

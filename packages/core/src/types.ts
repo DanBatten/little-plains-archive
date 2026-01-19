@@ -2,7 +2,7 @@
  * Core types for the content capture system
  */
 
-export type SourceType = 'twitter' | 'instagram' | 'linkedin' | 'pinterest' | 'web' | 'slack';
+export type SourceType = 'twitter' | 'instagram' | 'linkedin' | 'pinterest' | 'youtube' | 'web' | 'slack';
 
 export type ContentType = 'post' | 'article' | 'thread' | 'image' | 'video';
 

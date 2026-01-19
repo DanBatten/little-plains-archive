@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const sourceTypeSchema = z.enum(['twitter', 'instagram', 'linkedin', 'pinterest', 'web', 'slack']);
+export const sourceTypeSchema = z.enum(['twitter', 'instagram', 'linkedin', 'pinterest', 'youtube', 'web', 'slack']);
 
 export const contentTypeSchema = z.enum(['post', 'article', 'thread', 'image', 'video']);
 
@@ -45,6 +45,9 @@ export function detectSourceType(url: string): z.infer<typeof sourceTypeSchema> 
   }
   if (urlLower.includes('instagram.com')) {
     return 'instagram';
+  }
+  if (urlLower.includes('youtube.com') || urlLower.includes('youtu.be')) {
+    return 'youtube';
   }
   if (urlLower.includes('linkedin.com')) {
     return 'linkedin';

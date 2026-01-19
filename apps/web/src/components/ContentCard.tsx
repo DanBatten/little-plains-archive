@@ -16,6 +16,7 @@ const sourceColors: Record<string, string> = {
   instagram: 'bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#F77737]',
   linkedin: 'bg-[#0A66C2]',
   pinterest: 'bg-[#E60023]',
+  youtube: 'bg-[#FF0000]',
   web: 'bg-[var(--accent)]',
 };
 
@@ -142,6 +143,12 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
     return '/twitter-fallback.png'; // Watercolor fallback for text-only tweets
   };
 
+  const getYouTubeThumbnail = () => {
+    if (hasVideo && item.videos?.[0]?.thumbnail) return item.videos[0].thumbnail;
+    if (hasImage) return getBestImage(item.images);
+    return null;
+  };
+
   // For social posts: prefer images with GCS URLs (reliable), then video thumbnails, then any image
   // Filter out small images (icons, thumbnails under 400px)
   const getSocialThumbnail = () => {
@@ -170,7 +177,9 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
     ? getWebThumbnail()
     : item.source_type === 'twitter'
       ? getTwitterThumbnail()
-      : getSocialThumbnail();
+      : item.source_type === 'youtube'
+        ? getYouTubeThumbnail()
+        : getSocialThumbnail();
 
   const thumbnailCandidates = useMemo(() => {
     const list: string[] = [];
@@ -181,6 +190,9 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
     } else if (item.source_type === 'twitter') {
       if (thumbnail) list.push(thumbnail);
       if (fallbackImage && !list.includes(fallbackImage)) list.push(fallbackImage);
+    } else if (item.source_type === 'youtube') {
+      if (thumbnail) list.push(thumbnail);
+      list.push(...imageCandidates);
     } else {
       if (thumbnail) list.push(thumbnail);
       list.push(...imageCandidates);
@@ -320,7 +332,8 @@ export function ContentCard({ item, size = 'medium', position = 'auto', onClick,
             {item.source_type === 'twitter' ? '𝕏' :
              item.source_type === 'instagram' ? 'IG' :
              item.source_type === 'linkedin' ? 'in' :
-             item.source_type === 'pinterest' ? 'P' : '◎'}
+             item.source_type === 'pinterest' ? 'P' :
+             item.source_type === 'youtube' ? '▶' : '◎'}
           </span>
         </div>
 

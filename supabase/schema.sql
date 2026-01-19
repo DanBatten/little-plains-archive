@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE content_items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   source_url TEXT NOT NULL UNIQUE,
-  source_type TEXT NOT NULL CHECK (source_type IN ('twitter', 'instagram', 'linkedin', 'pinterest', 'web', 'slack')),
+  source_type TEXT NOT NULL CHECK (source_type IN ('twitter', 'instagram', 'linkedin', 'pinterest', 'youtube', 'web', 'slack')),
 
   -- Extracted content
   title TEXT,
