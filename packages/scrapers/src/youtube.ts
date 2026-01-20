@@ -20,9 +20,10 @@ export class YouTubeScraper implements ContentScraper {
   }
 
   async scrape(url: string, _options?: ScraperOptions): Promise<ExtractedContent> {
-    const embedUrl = this.getEmbedUrl(url);
-    const oembed = await this.fetchOEmbed(url);
-    const ogMeta = await this.fetchOpenGraph(url);
+    const normalizedUrl = this.normalizeUrl(url);
+    const embedUrl = this.getEmbedUrl(normalizedUrl);
+    const oembed = await this.fetchOEmbed(normalizedUrl);
+    const ogMeta = await this.fetchOpenGraph(normalizedUrl);
 
     const images: MediaItem[] = [];
     const videos: VideoItem[] = [];
@@ -181,6 +182,14 @@ export class YouTubeScraper implements ContentScraper {
     }
 
     return undefined;
+  }
+
+  private normalizeUrl(url: string): string {
+    try {
+      return url.replace(/&amp;/g, '&');
+    } catch {
+      return url;
+    }
   }
 }
 

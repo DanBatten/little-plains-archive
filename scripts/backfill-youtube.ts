@@ -8,6 +8,7 @@
  * Usage:
  *   npx tsx scripts/backfill-youtube.ts
  *   npx tsx scripts/backfill-youtube.ts --limit 25
+ *   npx tsx scripts/backfill-youtube.ts --reprocess
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -33,10 +34,14 @@ const topic = pubsub.topic(TOPIC_NAME);
 
 const args = process.argv.slice(2);
 let limit = 0;
+let reprocess = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--limit' && args[i + 1]) {
     limit = parseInt(args[i + 1], 10);
+  }
+  if (args[i] === '--reprocess') {
+    reprocess = true;
   }
 }
 
@@ -46,9 +51,12 @@ async function backfillYouTube() {
   let query = supabase
     .from('content_items')
     .select('id, source_url, source_type, slack_context_text')
-    .neq('source_type', 'youtube')
     .or('source_url.ilike.%youtube.com%,source_url.ilike.%youtu.be%')
     .order('created_at', { ascending: false });
+
+  if (!reprocess) {
+    query = query.neq('source_type', 'youtube');
+  }
 
   if (limit > 0) {
     query = query.limit(limit);
@@ -60,10 +68,10 @@ async function backfillYouTube() {
     process.exit(1);
   }
 
-  if (!items || items.length === 0) {
-    console.log('No YouTube items found for backfill.');
-    return;
-  }
+    if (!items || items.length === 0) {
+      console.log(reprocess ? 'No YouTube items found for reprocess.' : 'No YouTube items found for backfill.');
+      return;
+    }
 
   console.log(`Found ${items.length} YouTube items. Updating and sending to queue...`);
 
