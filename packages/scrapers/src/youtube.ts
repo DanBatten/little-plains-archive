@@ -1,3 +1,4 @@
+import * as cheerio from 'cheerio';
 import type { ExtractedContent, MediaItem, VideoItem } from '@little-plains/core';
 import type { ContentScraper, ScraperOptions } from './types';
 
@@ -21,30 +22,32 @@ export class YouTubeScraper implements ContentScraper {
   async scrape(url: string, _options?: ScraperOptions): Promise<ExtractedContent> {
     const embedUrl = this.getEmbedUrl(url);
     const oembed = await this.fetchOEmbed(url);
+    const ogMeta = await this.fetchOpenGraph(url);
 
     const images: MediaItem[] = [];
     const videos: VideoItem[] = [];
 
-    if (oembed?.thumbnail_url) {
+    const thumbnailUrl = ogMeta.image || oembed?.thumbnail_url;
+    if (thumbnailUrl) {
       images.push({
-        url: oembed.thumbnail_url,
-        width: oembed.thumbnail_width,
-        height: oembed.thumbnail_height,
+        url: thumbnailUrl,
+        width: ogMeta.imageWidth ?? oembed?.thumbnail_width,
+        height: ogMeta.imageHeight ?? oembed?.thumbnail_height,
       });
     }
 
     if (embedUrl) {
       videos.push({
         url: embedUrl,
-        thumbnail: oembed?.thumbnail_url,
+        thumbnail: thumbnailUrl,
       });
     }
 
     return {
-      title: oembed?.title,
-      description: undefined,
+      title: ogMeta.title || oembed?.title,
+      description: ogMeta.description,
       bodyText: undefined,
-      authorName: oembed?.author_name,
+      authorName: ogMeta.author || oembed?.author_name,
       authorHandle: undefined,
       publishedAt: undefined,
       images,
@@ -53,6 +56,7 @@ export class YouTubeScraper implements ContentScraper {
       platformData: {
         oembed,
         embedUrl,
+        ...(ogMeta.raw ? { ogMeta: ogMeta.raw } : {}),
       },
     };
   }
@@ -60,13 +64,98 @@ export class YouTubeScraper implements ContentScraper {
   private async fetchOEmbed(url: string): Promise<YouTubeOEmbedResponse | undefined> {
     try {
       const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-      const response = await fetch(endpoint);
+      const response = await fetch(endpoint, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      });
       if (!response.ok) {
         return undefined;
       }
       return (await response.json()) as YouTubeOEmbedResponse;
     } catch {
       return undefined;
+    }
+  }
+
+  private async fetchOpenGraph(url: string): Promise<{
+    title?: string;
+    description?: string;
+    image?: string;
+    imageWidth?: number;
+    imageHeight?: number;
+    author?: string;
+    raw?: Record<string, string>;
+  }> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+
+      if (!response.ok) {
+        return {};
+      }
+
+      const html = await response.text();
+      const $ = cheerio.load(html);
+
+      const getMeta = (selector: string) => $(selector).attr('content') || undefined;
+
+      const title = getMeta('meta[property="og:title"]') || $('title').text().trim() || undefined;
+      const description =
+        getMeta('meta[property="og:description"]') ||
+        getMeta('meta[name="description"]') ||
+        undefined;
+      const image = getMeta('meta[property="og:image"]') ||
+        getMeta('meta[property="og:image:secure_url"]') ||
+        getMeta('meta[name="twitter:image"]') ||
+        undefined;
+      const imageWidth = parseInt(getMeta('meta[property="og:image:width"]') || '0', 10) || undefined;
+      const imageHeight = parseInt(getMeta('meta[property="og:image:height"]') || '0', 10) || undefined;
+      const author =
+        getMeta('meta[name="author"]') ||
+        getMeta('meta[property="og:site_name"]') ||
+        undefined;
+
+      const raw: Record<string, string> = {};
+      [
+        'meta[property="og:title"]',
+        'meta[property="og:description"]',
+        'meta[property="og:image"]',
+        'meta[property="og:image:secure_url"]',
+        'meta[property="og:image:width"]',
+        'meta[property="og:image:height"]',
+        'meta[name="twitter:image"]',
+        'meta[name="description"]',
+        'meta[name="author"]',
+      ].forEach((selector) => {
+        const value = getMeta(selector);
+        if (value) raw[selector] = value;
+      });
+
+      return {
+        title,
+        description,
+        image,
+        imageWidth,
+        imageHeight,
+        author,
+        raw: Object.keys(raw).length > 0 ? raw : undefined,
+      };
+    } catch {
+      return {};
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
