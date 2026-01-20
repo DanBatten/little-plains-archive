@@ -31,9 +31,9 @@ await esbuild.build({
   ],
   // Resolve local monorepo packages
   alias: {
-    '@content-capture/core': join(rootDir, 'packages/core/src/index.ts'),
-    '@content-capture/scrapers': join(rootDir, 'packages/scrapers/src/index.ts'),
-    '@content-capture/analyzer': join(rootDir, 'packages/analyzer/src/index.ts'),
+    '@little-plains/core': join(rootDir, 'packages/core/src/index.ts'),
+    '@little-plains/scrapers': join(rootDir, 'packages/scrapers/src/index.ts'),
+    '@little-plains/analyzer': join(rootDir, 'packages/analyzer/src/index.ts'),
   },
   sourcemap: false,
   minify: false,
